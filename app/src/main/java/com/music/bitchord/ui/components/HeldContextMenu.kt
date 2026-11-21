@@ -49,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.player.PlayerBackHandler
+import com.music.bitchord.ui.player.additiveChrome
+import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -63,9 +66,10 @@ import kotlin.math.roundToInt
  * grid tile comes up as that tile and a search row as that row. It sits on a
  * frosted plate so it reads as picked up rather than pasted over the blur.
  *
- * Only a hold opens this. The ⋮ keeps opening the bottom sheet — a tap on a
- * small button is a request for the full menu, while a hold on the item itself
- * is a gesture about *that item*, answered where the finger is.
+ * Only a hold opens this. The ⋮ opens the same actions hung off itself instead
+ * (see [IosMenuPopover]) — the button is already where the finger is, while a
+ * hold on the item itself is a gesture about *that item*, answered by lifting
+ * it. The ⋮ is left out of the lifted picture: see [leftOutOfHeldPicture].
  *
  * [item] and [held] come and go together: non-null while the menu is wanted,
  * null once anything has closed it. The last pair is kept here so the menu can
@@ -85,12 +89,19 @@ fun <T : Any> HeldContextMenu(
     onDismiss: () -> Unit,
     /** Tapping the lifted item — open what it stands for. Null leaves it inert. */
     onPreviewClick: ((T) -> Unit)?,
+    inPlayerSheet: Boolean = false,
+    /** Optional controls-free rendering; all other origins keep their captured picture. */
+    preview: (@Composable (T) -> Unit)? = null,
     actions: @Composable (T) -> Unit,
 ) {
     val requested = if (item != null && held != null) item to held else null
     var last by remember { mutableStateOf<Pair<T, HeldItem>?>(null) }
+    var lastPreview by remember { mutableStateOf<(@Composable (T) -> Unit)?>(null) }
     if (requested != null && requested != last) {
-        SideEffect { last = requested }
+        SideEffect {
+            last = requested
+            lastPreview = preview
+        }
     }
     val shown = requested ?: last ?: return
     val (menuItem, heldItem) = shown
@@ -128,9 +139,14 @@ fun <T : Any> HeldContextMenu(
         }
     }
 
-    BackHandler(enabled = open, onBack = onDismiss)
+    if (inPlayerSheet) {
+        PlayerBackHandler(enabled = open, onBack = onDismiss)
+    } else {
+        BackHandler(enabled = open, onBack = onDismiss)
+    }
 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
     // Plain white or black at half strength, so the blur shows through as
     // frost rather than the surface greys reading as a flat slab over it. With
     // no blur behind there is nothing for that to frost, so the plate firms up
@@ -145,9 +161,12 @@ fun <T : Any> HeldContextMenu(
         dark -> Color.Black.copy(alpha = 0.30f)
         else -> Color.Black.copy(alpha = 0.10f)
     }
-    val cardShape = RoundedCornerShape(20.dp)
-    val menuShape = RoundedCornerShape(16.dp)
+    val cardShape = RoundedCornerShape(CARD_RADIUS)
     val platePadding = 8.dp
+    // The picture's corners run parallel to the plate's. It is taken inside
+    // whatever clip the item had, so a card rounded by a parent comes up
+    // square — and a square on a rounded plate reads as cut out of it.
+    val pictureShape = RoundedCornerShape(CARD_RADIUS - platePadding)
 
     val insets = WindowInsets.safeDrawing
     var overlayOffset by remember { mutableStateOf(Offset.Zero) }
@@ -156,6 +175,7 @@ fun <T : Any> HeldContextMenu(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { overlayOffset = it.positionInWindow() }
+            .then(if (inPlayerSheet) Modifier.containSheetGestures() else Modifier)
             // Once it is on its way out nothing on it answers any more — a
             // second tap on a row mid-exit would run its action twice.
             .then(if (open) Modifier else Modifier.pointerInput(Unit) { swallowAll() }),
@@ -205,12 +225,15 @@ fun <T : Any> HeldContextMenu(
                     )
                     .padding(platePadding),
             ) {
-                heldItem.image?.let { image ->
+                val renderPreview = if (requested != null) preview else lastPreview
+                if (renderPreview != null) {
+                    renderPreview(menuItem)
+                } else heldItem.image?.let { image ->
                     Image(
                         bitmap = image,
                         contentDescription = null,
                         contentScale = ContentScale.FillBounds,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().clip(pictureShape),
                     )
                 }
             }
@@ -218,11 +241,15 @@ fun <T : Any> HeldContextMenu(
                 Modifier
                     // Taps between rows land on the menu, not the scrim under it.
                     .pointerInput(Unit) {}
-                    .clip(menuShape)
-                    .background(plate)
-                    .border(0.5.dp, hairline, menuShape),
+                    // The same frosted plate the held item sits on, so the
+                    // item and its menu read as one thing lifted off the page.
+                    .iosMenuPanel(fillOverride = plate, rimOverride = hairline)
+                    .padding(vertical = 8.dp),
             ) {
-                actions(menuItem)
+                // Added onto the plate, on a dark one only: see [IosMenuPopover].
+                Column(Modifier.additiveChrome(dark && !plain)) {
+                    actions(menuItem)
+                }
             }
         },
     ) { measurables, constraints ->
@@ -248,7 +275,7 @@ fun <T : Any> HeldContextMenu(
         val visualW = plateW * liftScale
         val visualH = plateH * liftScale
 
-        val menuWidth = (width - margin * 2).coerceAtMost(280.dp.roundToPx()).coerceAtLeast(0)
+        val menuWidth = (width - margin * 2).coerceAtMost(IosMenuWidth.roundToPx()).coerceAtLeast(0)
         val menuMaxHeight = (bottom - top - visualH.roundToInt() - gap).coerceAtLeast(0)
         val menu = measurables[2].measure(
             Constraints(minWidth = menuWidth, maxWidth = menuWidth, maxHeight = menuMaxHeight),
@@ -334,6 +361,8 @@ fun <T : Any> HeldContextMenu(
         }
     }
 }
+
+private val CARD_RADIUS = 20.dp
 
 private suspend fun PointerInputScope.swallowAll() {
     awaitPointerEventScope {

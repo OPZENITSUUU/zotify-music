@@ -189,8 +189,6 @@
     <string name="sign_in">登录</string>
     <string name="sign_in_youtube_music">登录 YouTube Music</string>
     <string name="subscriptions">订阅</string>
-    <string name="switch_to_grid_view">切换到网格视图</string>
-    <string name="switch_to_list_view">切换到列表视图</string>
     <string name="your_replay">你的 Replay</string>
     <string name="your_listening_experience">你的收听体验</string>
     <string name="default_replay_holder">BitChord 听众</string>
@@ -200,4 +198,15 @@
     <string name="search_library_empty">搜索本地音乐文件夹中的歌曲。</string>
     <string name="search_library_hint">歌曲、艺人和专辑</string>
     <string name="search_library_no_results">本地音乐中没有与「%1$s」匹配的内容。</string>
+    <string name="add_to_queue">添加到播放队列</string>
+    <string name="queue_selected_count">已选择 %1$d 项</string>
+    <string name="queue_select_all">全选</string>
+    <string name="queue_select">选择</string>
+    <string name="queue_close_selection">关闭选择模式</string>
+    <string name="queue_add_to_playlist">播放列表</string>
+    <string name="queue_download">下载</string>
+    <string name="queue_selection_remove">移除</string>
+    <string name="queue_add_all_to_playlist">全部添加到播放列表</string>
+    <string name="mixes_yours">你的混音</string>
+    <string name="mixes_none">暂无混音。继续收听，YouTube Music 会为你生成混音。</string>
 </resources>

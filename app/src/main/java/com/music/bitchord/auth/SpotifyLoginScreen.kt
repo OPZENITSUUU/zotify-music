@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.music.bitchord.data.web.QuietWebChromeClient
 
 private const val LOGIN_URL =
     "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
@@ -71,6 +72,27 @@ fun clearSpotifyWebSession() {
         }
     }
     cookies.flush()
+
+/**
+ * Signs the login WebView out of Spotify. Disconnecting only forgot the
+ * stored cookie, and the WebView's own jar would have signed the next
+ * "Sign in" straight back in. Only Spotify's cookies go — the same jar holds
+ * the YouTube Music sign-in.
+ */
+fun clearSpotifyWebSession() {
+    val cookies = CookieManager.getInstance()
+    for (url in SPOTIFY_COOKIE_URLS) {
+        val names = cookies.getCookie(url)?.split(";")
+            ?.map { it.substringBefore("=").trim() }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+        for (name in names) {
+            val expired = "$name=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/"
+            cookies.setCookie(url, expired)
+            cookies.setCookie(url, "$expired; Domain=.spotify.com")
+        }
+    }
+    cookies.flush()
 }
 
 /**
@@ -98,7 +120,7 @@ fun SpotifyLoginScreen(
         factory = { context ->
             WebView(context).apply {
                 // MATCH_PARENT, not the WRAP_CONTENT Compose hands a bare view:
-                // see SpotifyLoginScreen — a zero layout viewport collapses
+                // see DiscordLoginScreen — a zero layout viewport collapses
                 // any page sized off `height: 100%`, and Spotify's is.
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -114,6 +136,7 @@ fun SpotifyLoginScreen(
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
+                webChromeClient = QuietWebChromeClient()
                 var sent = false
                 webViewClient = object : WebViewClient() {
                     // Spotify's own pages and the identity providers its sign-in
