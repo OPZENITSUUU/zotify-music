@@ -25,8 +25,11 @@ class ReleaseValidatorTest(unittest.TestCase):
     def test_accepts_plain_semver_release_tag(self) -> None:
         self.assertEqual((1, 0, 11), parse_tag("v1.0.11"))
 
+    def test_accepts_two_part_release_tag(self) -> None:
+        self.assertEqual((1, 10, 0), parse_tag("v1.10"))
+
     def test_rejects_non_release_tag_syntax(self) -> None:
-        for tag in ("1.0.11", "v1.0", "v1.0.11-beta1", "v01.0.11"):
+        for tag in ("1.0.11", "v1.0.11-beta1", "v01.0.11"):
             with self.subTest(tag=tag), self.assertRaises(ValidationError):
                 parse_tag(tag)
 
