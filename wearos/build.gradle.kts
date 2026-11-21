@@ -142,8 +142,8 @@ kotlin {
     }
 }
 
-// Named after the phone APKs (BitChord-v1.8.apk) but with their own prefix, so
-// the phone's updater — which only takes assets starting "BitChord-" — can never
+// Named after the phone APKs (Zotify.Music.apk) but with their own prefix, so
+// the phone's updater — which only takes assets starting "Zotify.Music" — can never
 // pick a watch APK by mistake.
 base.archivesName.set("BitChordWear")
 

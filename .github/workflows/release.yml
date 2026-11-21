@@ -164,6 +164,9 @@ jobs:
       - name: Build signed production APK
         run: ./gradlew :app:assembleProdRelease
 
+      - name: Build signed Android TV production APK
+        run: ./gradlew :tv:assembleProdRelease
+
       - name: Verify package, version, alignment, and signature
         shell: bash
         env:
@@ -179,6 +182,7 @@ jobs:
             [app-prod-universal-release.apk]=Zotify.Music.apk
             [app-prod-arm64-v8a-release.apk]=Zotify.Music_arm64-v8a.apk
             [app-prod-armeabi-v7a-release.apk]=Zotify.Music_armeabi-v7a.apk
+            [app-prod-x86_64-release.apk]=Zotify.Music_x86_64.apk
           )
           for filename in "${!outputs[@]}"; do
             apk="app/build/outputs/apk/prod/release/$filename"
@@ -190,6 +194,24 @@ jobs:
             "$build_tools/zipalign" -c -v 4 "$apk"
             "$build_tools/apksigner" verify --verbose --print-certs "$apk"
             cp "$apk" "dist/${outputs[$filename]}"
+          done
+
+          declare -A tv_outputs=(
+            [tv-prod-universal-release.apk]=ZotifyMusicTV.apk
+            [tv-prod-arm64-v8a-release.apk]=ZotifyMusicTV_arm64-v8a.apk
+            [tv-prod-armeabi-v7a-release.apk]=ZotifyMusicTV_armeabi-v7a.apk
+            [tv-prod-x86_64-release.apk]=ZotifyMusicTV_x86_64.apk
+          )
+          for filename in "${!tv_outputs[@]}"; do
+            apk="tv/build/outputs/apk/prod/release/$filename"
+            test -s "$apk"
+            badging="$($build_tools/aapt dump badging "$apk")"
+            grep -F "package: name='com.zotifymusic.player.tv'" <<< "$badging"
+            grep -F "versionName='$expected_version'" <<< "$badging"
+            grep -F "versionCode='$EXPECTED_VERSION_CODE'" <<< "$badging"
+            "$build_tools/zipalign" -c -v 4 "$apk"
+            "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+            cp "$apk" "dist/${tv_outputs[$filename]}"
           done
 
       - name: Publish GitHub Release
@@ -204,12 +226,25 @@ jobs:
             dist/Zotify.Music.apk
             dist/Zotify.Music_arm64-v8a.apk
             dist/Zotify.Music_armeabi-v7a.apk
+            dist/Zotify.Music_x86_64.apk
+            dist/ZotifyMusicTV.apk
+            dist/ZotifyMusicTV_arm64-v8a.apk
+            dist/ZotifyMusicTV_armeabi-v7a.apk
+            dist/ZotifyMusicTV_x86_64.apk
           body: |
             ## Zotify Music ${{ inputs.release_tag || github.ref_name }}
 
             Android version code: ${{ steps.release_validation.outputs.version_code }}
 
-            APK assets: ARM64, ARMv7 (32-bit), and universal.
+            APK assets: phone and Android TV universal, ARM64, ARMv7 (32-bit), and x86_64 builds.
+
+            Android 8.0 / API 26+ can install `Zotify.Music.apk` over v1.9.1 when it is signed with the same release key. Use the ABI-specific APKs for smaller downloads.
+
+            Android TV / Google TV / Fire TV 8.0 / API 26+ can use `ZotifyMusicTV.apk` or the matching ABI-specific build. ARMv7 suits most older TVs and streaming sticks; ARM64 is for newer boxes such as Shield and Chromecast with Google TV.
+
+            Wear OS 3+ ships inside the phone APK. After installing or updating the phone app, open **Settings > Zotify Music for Wear OS** to install or update the watch app.
+
+            GitHub provides **Source code (zip)** and **Source code (tar.gz)** links automatically for this release.
 
             ### New in this release
             - **Mochy-compatible Appearance Skin Manager:** import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.
@@ -218,6 +253,11 @@ jobs:
             - **Skin management:** keep one skin active, disable or remove it to restore the previous appearance, and retain the selection across app restarts.
             - **Localised interface:** skin manager labels and messages use the app's translated Android resources.
             - **Addon defaults cleaned up:** unavailable bundled NullBeat and Nebula entries are retired from defaults. Existing user-created addon entries are preserved; Rukia and LastWave remain in the default set.
+            - **Lyrics:** smoother karaoke sweep across pause/resume, aligned RTL translations, fixed Chinese translation, timed YouTube Music lyrics, synced-lyrics preference, and local MP3 lyrics.
+            - **Playback and queue:** ordered playlist/album playback, AC-4 through FFmpeg, spatial loudness limiting, swipe/undo/multi-select queue actions, and cleaner queue history.
+            - **Replay and backup:** remote-speaker listening counts, stable Top Albums, animated shareable Replay Year stories, and Google Drive backup/restore/auto-sync across devices.
+            - **Player and discovery:** Radio, Best Part, Premium Opus, liked-song offline downloads, animated lyrics sharing, AutoMix artwork transitions, song credits, sleep fade-out, improved matching, and library-aware search.
+            - **Navigation and artwork:** active-tab scroll-to-top, high-resolution covers, local artwork preservation, tablet video full-screen fixes, and smaller first-use AutoMix downloads.
 
             ### Compatibility and security
             - Zotify applies only appearance settings its own UI supports. Imported scripts, custom player layouts, fonts, pages, and GPU shaders are not executed or loaded.
