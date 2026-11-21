@@ -176,6 +176,9 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
+          cores: 2
+          heap-size: 2048
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             set -euo pipefail
             apk="app/build/outputs/apk/prod/release/app-prod-universal-release.apk"
