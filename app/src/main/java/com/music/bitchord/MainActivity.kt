@@ -136,7 +136,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.music.bitchord.auth.DiscordLoginScreen
 import com.music.bitchord.auth.SpotifyLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
@@ -442,6 +441,7 @@ internal fun inPageOrder(shown: List<String>, page: List<String>): Boolean {
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Discord presence uses the authenticated official-bot bridge.
         if (intent?.action == ACTION_OPEN_UPDATE_FROM_NOTIFICATION) {
             updateNotificationTapped.value = true
         }
@@ -769,8 +769,7 @@ private fun BitChordApp(
     // alerts is open. The alerts live out here rather than on the page because
     // their scrim has to cover the tab bar and mini player, which are drawn
     // after it.
-    var showDiscordLogin by remember { mutableStateOf(false) }
-    var showSpotifyLogin by remember { mutableStateOf(false) }
+        var showSpotifyLogin by remember { mutableStateOf(false) }
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
@@ -3238,7 +3237,7 @@ private fun BitChordApp(
                             song = player.song,
                             positionMs = player.position.positionMs,
                             durationMs = player.durationMs,
-                            onOpenLogin = { showDiscordLogin = true },
+                            onOpenLogin = { discordDialog = DiscordDialog.BOT_SECRET },
                             onOpenDialog = { discordDialog = it },
                             contentPadding = listPadding,
                         )
@@ -6684,41 +6683,6 @@ private fun BitChordApp(
                 onSkip = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) },
                 onDismiss = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) },
             )
-        }
-
-        // ---- Discord sign-in (full screen WebView) ----
-        if (showDiscordLogin) {
-            BackHandler { showDiscordLogin = false }
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = { showDiscordLogin = false }) {
-                            Icon(
-                                Icons.Rounded.Close,
-                                contentDescription = stringResource(R.string.close),
-                                tint = MaterialTheme.colorScheme.onBackground,
-                            )
-                        }
-                        Text(
-                            "Sign in to Discord",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                    }
-                    DiscordLoginScreen(
-                        onTokenCaptured = { token ->
-                            AppSettings.setDiscordToken(token)
-                            showDiscordLogin = false
-                        },
-                    )
-                }
-            }
         }
 
         // ---- Spotify sign-in (full screen WebView) ----
