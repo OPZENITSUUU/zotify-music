@@ -544,7 +544,7 @@
     <string name="lyrics_share_image">รูปภาพ</string>
     <string name="lyrics_share_saving">กำลังบันทึก…</string>
     <string name="lyrics_share_gradient">ไล่สี</string>
-    <string name="lyrics_share_show_logo">แสดงโลโก้ BitChord</string>
+    <string name="lyrics_share_show_logo">แสดงโลโก้ Zotify Music</string>
     <string name="listening_shape">รูปแบบการฟังของคุณ</string>
     <string name="member_since">สมาชิกตั้งแต่</string>
     <string name="member_since_value">เป็นสมาชิกตั้งแต่ %1$s</string>
@@ -1365,7 +1365,7 @@
     <string name="replay_period_monthly">รายเดือน</string>
     <string name="replay_period_yearly">รายปี</string>
     <string name="replay_period_lifetime">ตลอดกาล</string>
-    <string name="onboarding_title">เพลงนับล้าน สตรีมบน BitChord</string>
+    
     <string name="onboarding_name_prompt">ให้เราเรียกคุณว่าอะไรดี</string>
     <string name="onboarding_name_hint">ชื่อของคุณ</string>
     <string name="onboarding_name_footer">เพื่อน ๆ จะเห็นชื่อนี้เมื่อคุณฟังด้วยกัน คุณเปลี่ยนได้ภายหลังในการตั้งค่า</string>
@@ -1576,8 +1576,8 @@
     <string name="font_footer">แบบเดิมจะนำตัวอักษรที่หนาและชิดกว่าซึ่งแอปเคยใช้ก่อนปรับให้เข้ากับ Apple Music กลับมา</string>
     <string name="bit_perfect_output">เอาต์พุต Bit-perfect</string>
     <string name="bit_perfect_bypassed_footer">เอาต์พุต Bit-perfect พร้อมแล้ว การตั้งค่าที่จางจึงถูกข้ามและจะไม่ขอเวอร์ชัน Dolby Atmos การตั้งค่าเหล่านี้จะกลับมาทำงานเมื่อถอด DAC หรือปิดโหมดนี้</string>
-    <string name="bit_perfect_sheet_warning">ส่งแทร็กไปยัง DAC โดยไม่เปลี่ยนแปลง อีควอไลเซอร์ การปรับระดับความดัง ครอสเฟด Automix ความเร็วในการเล่น และระดับเสียงของ BitChord จะถูกข้าม</string>
-    <string name="bit_perfect_mode_off_subtitle">เสียงจะผ่านมิกเซอร์ของ Android และเอฟเฟกต์ของ BitChord</string>
+    <string name="bit_perfect_sheet_warning">ส่งแทร็กไปยัง DAC โดยไม่เปลี่ยนแปลง อีควอไลเซอร์ การปรับระดับความดัง ครอสเฟด Automix ความเร็วในการเล่น และระดับเสียงของ Zotify Music จะถูกข้าม</string>
+    <string name="bit_perfect_mode_off_subtitle">เสียงจะผ่านมิกเซอร์ของ Android และเอฟเฟกต์ของ Zotify Music</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 เปิด DAC ที่อัตราและความลึกบิตของแต่ละแทร็ก โดยไม่มิกซ์หรือรีแซมเปิล</string>
     <string name="bit_perfect_requires_android_14">ต้องใช้ Android 14 ขึ้นไป</string>
@@ -1585,13 +1585,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">สำหรับเครื่องเล่นเพลงที่มี DAC ของตัวเอง เปิดเอาต์พุตหูฟังหรือไลน์แบบเอกสิทธิ์ที่อัตราของแต่ละแทร็ก บางอุปกรณ์อาจไม่อนุญาตโหมดเอกสิทธิ์</string>
     <string name="bit_perfect_requires_android_8_1">ต้องใช้ Android 8.1 ขึ้นไป</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (ไดรเวอร์โดยตรง)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord ควบคุม DAC เองบน Android ทุกเวอร์ชัน และตั้งระดับเสียงที่ DAC ต้องขอสิทธิ์ USB เสียงอาจดังกว่าเอาต์พุตปกติมาก</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">Zotify Music ควบคุม DAC เองบน Android ทุกเวอร์ชัน และตั้งระดับเสียงที่ DAC ต้องขอสิทธิ์ USB เสียงอาจดังกว่าเอาต์พุตปกติมาก</string>
     <string name="dac_volume">ระดับเสียงของ DAC</string>
     <string name="dac_volume_subtitle">ตั้งที่ตัว DAC เอง เพลงจะไม่ถูกปรับสเกล</string>
     <string name="usb_allow_fixed_volume">อนุญาต DAC ที่ไม่มีการควบคุมระดับเสียง</string>
     <string name="usb_allow_fixed_volume_subtitle">มิฉะนั้น DAC ดังกล่าวจะเล่นผ่านเอาต์พุตปกติ</string>
     <string name="usb_allow_fixed_volume_confirm_title">เล่นที่ระดับเต็มสเกลไหม</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord ตั้งระดับเสียงของ DAC ประเภทนี้ไม่ได้ จึงเล่นที่ระดับเต็มสเกล และมีเพียงปุ่มหมุนของ DAC เอง (หากมี) ที่ควบคุมความดังได้ เสียงอาจดังจนเป็นอันตรายกับหูฟังที่มีความไวสูง</string>
+    <string name="usb_allow_fixed_volume_confirm_message">Zotify Music ตั้งระดับเสียงของ DAC ประเภทนี้ไม่ได้ จึงเล่นที่ระดับเต็มสเกล และมีเพียงปุ่มหมุนของ DAC เอง (หากมี) ที่ควบคุมความดังได้ เสียงอาจดังจนเป็นอันตรายกับหูฟังที่มีความไวสูง</string>
     <string name="convert_for_limited_dac">แปลงสำหรับ DAC สเปกต่ำ</string>
     <string name="convert_for_limited_dac_subtitle">แปลงแทร็กที่เกินขีดจำกัดของ DAC เป็นฟอร์แมตสูงสุดของ DAC แทร็กอาจเริ่มเล่นช้าลงและจะไม่เป็น Bit-perfect เมื่อเทียบกับต้นฉบับ</string>
     <string name="bit_perfect_confirm_title">เปิดเอาต์พุต Bit-perfect ไหม</string>
