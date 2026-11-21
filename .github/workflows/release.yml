@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*"
-    branches:
-      - "feat/official-discord-bot"
   workflow_dispatch:
     inputs:
       release_tag:
@@ -35,7 +33,7 @@ jobs:
         id: release_validation
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.7') || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_PUSHED_TAG: ${{ github.event.forced }}
         run: |
@@ -166,10 +164,38 @@ jobs:
       - name: Build signed production APK
         run: ./gradlew :app:assembleProdRelease
 
+      # A successful compile is not enough for a sideloaded music app. Install
+      # the exact universal release APK on a clean emulator and keep the process
+      # alive long enough to catch native-library and Application startup crashes.
+      - name: Smoke-test installed APK on Android emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            apk="app/build/outputs/apk/prod/release/app-prod-universal-release.apk"
+            test -s "$apk"
+            adb install "$apk"
+            adb shell am force-stop com.zotifymusic.player
+            adb shell am start -W -n com.zotifymusic.player/com.music.bitchord.MainActivity
+            for attempt in $(seq 1 30); do
+              if adb shell pidof com.zotifymusic.player >/dev/null 2>&1; then
+                echo "Zotify Music stayed alive after launch."
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "::error::Zotify Music exited during startup."
+            adb logcat -d -t 1500
+            exit 1
+
       - name: Verify package, version, alignment, and signature
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.7') || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           EXPECTED_VERSION_CODE: ${{ steps.release_validation.outputs.version_code }}
         run: |
           set -euo pipefail
@@ -208,8 +234,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.7') || github.ref_name }}
-          name: Zotify Music ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.7') || github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          name: Zotify Music ${{ inputs.release_tag || github.ref_name }}
           draft: false
           make_latest: true
           fail_on_unmatched_files: true
@@ -218,7 +244,7 @@ jobs:
             dist/Zotify.Music_arm64-v8a.apk
             dist/Zotify.Music_armeabi-v7a.apk
           body: |
-            ## Zotify Music ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.7') || github.ref_name }}
+            ## Zotify Music ${{ inputs.release_tag || github.ref_name }}
 
             Android version code: ${{ steps.release_validation.outputs.version_code }}
 
@@ -230,7 +256,10 @@ jobs:
             - **Native appearance controls:** customise accent colour, pure-black mode, and artwork corner radius.
             - **Skin management:** keep one skin active, disable or remove it to restore the previous appearance, and retain the selection across app restarts.
             - **Localised interface:** skin manager labels and messages use the app's translated Android resources.
-            - **Addon defaults cleaned up:** unavailable bundled NullBeat and Nebula entries are retired from defaults. Existing user-created addon entries are preserved; Rukia and LastWave remain in the default set.
+            - **Clean Sources setup:** bundled third-party addon endpoints are no longer preloaded. Existing user-added providers remain under the user's control.
+            - **Official Discord bot RPC:** playback presence uses the authenticated Zotify bot bridge; no personal Discord user token is used.
+            - **Safer startup:** the unused native personal-account RPC SDK is no longer initialized when the app opens.
+            - **Device-aware updates:** the in-app updater downloads the matching ABI APK first and uses the universal APK only as a fallback.
 
             ### Compatibility and security
             - Zotify applies only appearance settings its own UI supports. Imported scripts, custom player layouts, fonts, pages, and GPU shaders are not executed or loaded.
