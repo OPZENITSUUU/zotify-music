@@ -643,73 +643,41 @@ class SourcesTest {
     }
 
     @Test
-    fun `legacy addon endpoints remain seeded disabled and require consent`() {
+    fun `legacy addon endpoints are no longer preloaded`() {
         val initial = SourceRegistry.sourcesForInit(emptyList())
         val legacyAddons = initial.filter {
             it.baseUrl == "https://bluebit.jucepe0929.workers.dev" ||
                 it.baseUrl == "https://eljohnzc-mono.de.deplexo.com"
         }
-
-        assertEquals(
-            setOf(
-                "https://bluebit.jucepe0929.workers.dev",
-                "https://eljohnzc-mono.de.deplexo.com",
-            ),
-            legacyAddons.map { it.baseUrl }.toSet(),
-        )
-        assertEquals(2, legacyAddons.size)
-        assertTrue(legacyAddons.all { !it.enabled && !it.networkAccessAuthorized })
-        assertTrue(legacyAddons.all { !it.allowDownloads })
-
-        // After the one-time migration, a user toggle/removal is not undone.
-        val userChoice = initial.filterNot { it.baseUrl == "https://bluebit.jucepe0929.workers.dev" }
-            .map { if (it.kind == SourceKind.ADDON) it.copy(enabled = false) else it }
-        val nextLaunch = SourceRegistry.sourcesForInit(
-            userChoice,
-            seedDefaultAddons = false,
-            seedRequestedAddons = false,
-        )
-        assertTrue(nextLaunch.none { it.baseUrl == "https://bluebit.jucepe0929.workers.dev" })
-        assertTrue(nextLaunch.filter { it.kind == SourceKind.ADDON }.all { !it.enabled })
+        assertTrue(legacyAddons.isEmpty())
     }
 
+
     @Test
-    fun `requested addon endpoints are seeded enabled and network-authorized`() {
+    fun `requested addon endpoints are not preloaded`() {
         val requested = SourceRegistry.sourcesForInit(emptyList())
             .filter { it.id in setOf("default-addon-rukia-v1", "default-addon-lastwave-v1") }
-
-        assertEquals(2, requested.size)
-        assertTrue(requested.all { it.enabled && it.networkAccessAuthorized })
-        assertTrue(requested.all { !it.allowDownloads })
-        assertEquals(2, SourceRegistry.enabledConfigs(requested).size)
-        assertEquals(
-            setOf("Rukia Addon", "LastWave"),
-            requested.map { it.label }.toSet(),
-        )
+        assertTrue(requested.isEmpty())
     }
 
+
     @Test
-    fun `requested addon defaults migrate once to existing installs and preserve opt-outs`() {
+    fun `requested addon defaults remain absent from existing installs`() {
         val migrated = SourceRegistry.sourcesForInit(
             stored = listOf(SourceConfig(kind = SourceKind.YOUTUBE)),
             seedDefaultAddons = false,
             seedRequestedAddons = true,
         )
         val requestedIds = setOf("default-addon-rukia-v1", "default-addon-lastwave-v1")
-        assertEquals(2, migrated.count { it.id in requestedIds })
-        assertTrue(migrated.filter { it.id in requestedIds }.all { it.enabled })
-
-        val optedOut = migrated.map { config ->
-            if (config.id == "default-addon-rukia-v1") config.copy(enabled = false) else config
-        }
+        assertEquals(0, migrated.count { it.id in requestedIds })
         val nextLaunch = SourceRegistry.sourcesForInit(
-            stored = optedOut,
+            stored = migrated,
             seedDefaultAddons = false,
             seedRequestedAddons = false,
         )
-        assertEquals(2, nextLaunch.count { it.id in requestedIds })
-        assertFalse(nextLaunch.single { it.id == "default-addon-rukia-v1" }.enabled)
+        assertEquals(0, nextLaunch.count { it.id in requestedIds })
     }
+
 
     @Test
     fun `legacy retired defaults are removed but a user-created matching URL is preserved`() {
