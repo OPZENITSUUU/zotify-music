@@ -249,10 +249,10 @@
     <string name="language">Language</string>
     <string name="app_language">App language</string>
     <string name="app_language_description">Choose the language used by Zotify Music.</string>
-    <string name="app_language_description">Choose the language used by BitChord.</string>
+    
     <!-- Hidden tester-code field: tap the App language title 10 times. Not translated: testers only. -->
     <string name="tester_code_title" translatable="false">Tester code</string>
-    <string name="tester_code_message" translatable="false">For BitChord testers. Lets addon verification work on this phone with an unlocked bootloader.</string>
+    <string name="tester_code_message" translatable="false">For Zotify Music testers. Lets addon verification work on this phone with an unlocked bootloader.</string>
     <string name="tester_code_message_saved" translatable="false">A tester code is saved on this phone. Enter a new one to replace it, or remove it.</string>
     <string name="tester_code_placeholder" translatable="false">XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</string>
     <string name="tester_code_saved" translatable="false">Tester code saved</string>
@@ -405,7 +405,7 @@
     <string name="app_icon_pixel_neon_silver" translatable="false">Pixel Neon Silver</string>
     <string name="app_icon_pixel_neon_cyan" translatable="false">Pixel Neon Cyan</string>
     <string name="app_icon_pixel_neon_violet" translatable="false">Pixel Neon Violet</string>
-    <string name="theme">Theme</string>
+    
     <string name="font">Font</string>
     <string name="font_default">Default</string>
     <string name="font_legacy">Legacy</string>
@@ -845,7 +845,7 @@
     <string name="lyrics_share_gradient">Gradient</string>
     <string name="lyrics_share_apple_canvas" translatable="false">Apple</string>
     <string name="lyrics_share_spotify_canvas" translatable="false">Spotify</string>
-    <string name="lyrics_share_show_logo">Show BitChord logo</string>
+    <string name="lyrics_share_show_logo">Show Zotify Music logo</string>
     <string name="listening_shape">Your listening pattern</string>
     <string name="member_since">Member since</string>
     <string name="member_since_value">Member since %1$s</string>
@@ -1164,8 +1164,8 @@
 
     <string name="bit_perfect_output">Bit-perfect output</string>
     <string name="bit_perfect_bypassed_footer">Bit-perfect output is ready, so the faded settings are bypassed and Dolby Atmos versions aren\'t requested. They work again when the DAC is disconnected or the mode is off.</string>
-    <string name="bit_perfect_sheet_warning">Sends the track to the DAC unchanged. The equalizer, loudness normalization, crossfade, Automix, playback speed and BitChord\'s volume are bypassed.</string>
-    <string name="bit_perfect_mode_off_subtitle">Audio goes through Android\'s mixer and BitChord\'s effects.</string>
+    <string name="bit_perfect_sheet_warning">Sends the track to the DAC unchanged. The equalizer, loudness normalization, crossfade, Automix, playback speed and Zotify Music\'s volume are bypassed.</string>
+    <string name="bit_perfect_mode_off_subtitle">Audio goes through Android\'s mixer and Zotify Music\'s effects.</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 opens the DAC at each track\'s own rate and bit depth, without mixing or resampling.</string>
     <string name="bit_perfect_requires_android_14">Requires Android 14 or later</string>
@@ -1173,13 +1173,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">For music players with their own DAC. Opens the headphone or line output exclusively at each track\'s own rate. Not every device grants exclusive mode.</string>
     <string name="bit_perfect_requires_android_8_1">Requires Android 8.1 or later</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (direct driver)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord drives the DAC itself, on any Android version, and sets its volume on the DAC. Asks for USB permission. Can be much louder than normal output.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">Zotify Music drives the DAC itself, on any Android version, and sets its volume on the DAC. Asks for USB permission. Can be much louder than normal output.</string>
     <string name="dac_volume">DAC volume</string>
     <string name="dac_volume_subtitle">Set on the DAC itself; the music is not scaled</string>
     <string name="usb_allow_fixed_volume">Allow DACs without volume control</string>
     <string name="usb_allow_fixed_volume_subtitle">Otherwise such a DAC plays through normal output</string>
     <string name="usb_allow_fixed_volume_confirm_title">Play at full scale?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord can\'t set this kind of DAC\'s volume, so it plays at full scale and only the DAC\'s own knob, if it has one, controls loudness. This can be dangerously loud with sensitive headphones.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">Zotify Music can\'t set this kind of DAC\'s volume, so it plays at full scale and only the DAC\'s own knob, if it has one, controls loudness. This can be dangerously loud with sensitive headphones.</string>
     <string name="convert_for_limited_dac">Convert for lower-spec DACs</string>
     <string name="convert_for_limited_dac_subtitle">Converts tracks above your DAC\'s limit to its highest format. Tracks may take longer to start and won\'t be bit-perfect to the original.</string>
     <string name="bit_perfect_confirm_title">Turn on bit-perfect output?</string>
@@ -1392,8 +1392,8 @@
     <string name="song_info_unavailable">Not available</string>
     <string name="song_info_error">Some information could not be loaded.</string>
     <string name="song_info_retry">Retry</string>
-    <!-- Settings: BitChord for Wear OS -->
-    <string name="wear_os_section">BitChord for Wear OS</string>
+    <!-- Settings: Zotify Music for Wear OS -->
+    
     <string name="wear_os_page_title">Wear OS</string>
     <string name="wear_os_your_watches">Your watches</string>
     <string name="wear_os_value_none">No watch</string>
@@ -1584,7 +1584,7 @@
     <string name="replay_year_open">Open your Replay %1$s</string>
     <string name="replay_year_building">Building your year…</string>
     <string name="replay_year_opener_start">Your</string>
-    <string name="replay_year_opener_end">in BitChord</string>
+    <string name="replay_year_opener_end">in Zotify Music</string>
     <string name="replay_year_opener_detail">Let’s look back at what you played.</string>
     <string name="replay_year_minutes_start">This year you listened for</string>
     <plurals name="replay_year_minutes_word">
