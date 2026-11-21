@@ -1,12 +1,11 @@
-# BitChord v1.10 source port
+# BitChord v1.10 source integration
 
 - Upstream release: https://github.com/kushagrasinghx/BitChord/releases/tag/v1.10
-- Upstream merge commit: 
-- Upstream base commit: 
-- Conflicted files retained from Zotify: 2
+- Three-way base:  (Zotify's original BitChord snapshot)
+- Upstream source commit: 
+- Apply exit code: 
+- Conflicts union-merged in Kotlin/Java: 0
+- Conflicts kept from Zotify for non-code/configuration: 0
 
-Zotify's app ID, resource namespace, branding, signing configuration, updater feed, and independent release numbering are retained. New upstream files and non-conflicting changes are ported; conflict files are preserved for focused reconciliation.
+Zotify's app ID, namespace, product branding, signing configuration, update asset prefix, independent version numbering, and GitHub release pipeline remain owned by Zotify. The upstream source changes were merged from the original fork snapshot using Git's three-way merge; Kotlin/Java conflicts retain both sides for compiler/test validation.
 
-## Conflicts requiring focused review
-- 
-- 
