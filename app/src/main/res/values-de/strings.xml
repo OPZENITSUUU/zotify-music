@@ -531,7 +531,7 @@
     <string name="lyrics_share_image">Bild</string>
     <string name="lyrics_share_saving">Wird gespeichert…</string>
     <string name="lyrics_share_gradient">Verlauf</string>
-    <string name="lyrics_share_show_logo">BitChord-Logo anzeigen</string>
+    <string name="lyrics_share_show_logo">Zotify Music-Logo anzeigen</string>
     <string name="listening_shape">Dein Hörmuster</string>
     <string name="member_since">Mitglied seit</string>
     <string name="member_since_value">Mitglied seit %1$s</string>
@@ -1382,7 +1382,7 @@
     <string name="replay_period_monthly">Monatlich</string>
     <string name="replay_period_yearly">Jährlich</string>
     <string name="replay_period_lifetime">Gesamt</string>
-    <string name="onboarding_title">Millionen Songs, gestreamt auf BitChord</string>
+    
     <string name="onboarding_name_prompt">Wie sollen wir dich nennen?</string>
     <string name="onboarding_name_hint">Dein Name</string>
     <string name="onboarding_name_footer">Freunde sehen das bei Gemeinsam hören. Du kannst es später in den Einstellungen ändern.</string>
@@ -1593,8 +1593,8 @@
     <string name="font_footer">„Klassisch“ bringt die kräftigere, engere Schrift zurück, die die App verwendete, bevor sie an Apple Music angepasst wurde.</string>
     <string name="bit_perfect_output">Bit-perfekte Ausgabe</string>
     <string name="bit_perfect_bypassed_footer">Die bit-perfekte Ausgabe ist bereit, daher werden die ausgegrauten Einstellungen umgangen und keine Dolby-Atmos-Versionen angefordert. Sie funktionieren wieder, wenn der DAC getrennt oder der Modus ausgeschaltet wird.</string>
-    <string name="bit_perfect_sheet_warning">Sendet den Titel unverändert an den DAC. Equalizer, Lautstärkenormalisierung, Überblendung, Automix, Wiedergabegeschwindigkeit und die Lautstärke von BitChord werden umgangen.</string>
-    <string name="bit_perfect_mode_off_subtitle">Der Ton läuft über den Android-Mixer und die Effekte von BitChord.</string>
+    <string name="bit_perfect_sheet_warning">Sendet den Titel unverändert an den DAC. Equalizer, Lautstärkenormalisierung, Überblendung, Automix, Wiedergabegeschwindigkeit und die Lautstärke von Zotify Music werden umgangen.</string>
+    <string name="bit_perfect_mode_off_subtitle">Der Ton läuft über den Android-Mixer und die Effekte von Zotify Music.</string>
     <string name="bit_perfect_mode_usb_android">USB-DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 öffnet den DAC mit der Abtastrate und Bittiefe des jeweiligen Titels, ohne Mischen oder Resampling.</string>
     <string name="bit_perfect_requires_android_14">Erfordert Android 14 oder neuer</string>
@@ -1602,13 +1602,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">Für Musikplayer mit eigenem DAC. Öffnet den Kopfhörer- oder Line-Ausgang exklusiv mit der Abtastrate des jeweiligen Titels. Nicht jedes Gerät gewährt den Exklusivmodus.</string>
     <string name="bit_perfect_requires_android_8_1">Erfordert Android 8.1 oder neuer</string>
     <string name="bit_perfect_mode_usb_direct">USB-DAC (direkter Treiber)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord steuert den DAC selbst, unter jeder Android-Version, und stellt die Lautstärke am DAC ein. Fragt nach der USB-Berechtigung. Kann deutlich lauter sein als die normale Ausgabe.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">Zotify Music steuert den DAC selbst, unter jeder Android-Version, und stellt die Lautstärke am DAC ein. Fragt nach der USB-Berechtigung. Kann deutlich lauter sein als die normale Ausgabe.</string>
     <string name="dac_volume">DAC-Lautstärke</string>
     <string name="dac_volume_subtitle">Wird am DAC selbst eingestellt; die Musik wird nicht skaliert</string>
     <string name="usb_allow_fixed_volume">DACs ohne Lautstärkeregelung zulassen</string>
     <string name="usb_allow_fixed_volume_subtitle">Sonst spielt ein solcher DAC über die normale Ausgabe</string>
     <string name="usb_allow_fixed_volume_confirm_title">Mit voller Aussteuerung abspielen?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord kann die Lautstärke dieser Art von DAC nicht einstellen. Er spielt daher mit voller Aussteuerung, und nur sein eigener Regler, falls vorhanden, ändert die Lautstärke. Mit empfindlichen Kopfhörern kann das gefährlich laut sein.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">Zotify Music kann die Lautstärke dieser Art von DAC nicht einstellen. Er spielt daher mit voller Aussteuerung, und nur sein eigener Regler, falls vorhanden, ändert die Lautstärke. Mit empfindlichen Kopfhörern kann das gefährlich laut sein.</string>
     <string name="convert_for_limited_dac">Für einfachere DACs umwandeln</string>
     <string name="convert_for_limited_dac_subtitle">Wandelt Titel, die über dem Limit deines DACs liegen, in sein höchstes Format um. Titel starten eventuell langsamer und sind nicht bit-perfekt zum Original.</string>
     <string name="bit_perfect_confirm_title">Bit-perfekte Ausgabe einschalten?</string>
