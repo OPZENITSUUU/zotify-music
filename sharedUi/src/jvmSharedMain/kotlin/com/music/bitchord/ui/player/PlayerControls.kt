@@ -1440,6 +1440,7 @@ private fun OutputPartyPill(
                 )
             }
         }
+    }
     val shown by PlayerSettings.showListenTogetherButton.collectAsStateWithLifecycle()
     val output = rememberOutputGlyph()
     // Party half hidden only outside a party: once in one, this is the way to
