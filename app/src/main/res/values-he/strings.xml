@@ -495,7 +495,7 @@
     <string name="lyrics_share_image">תמונה</string>
     <string name="lyrics_share_saving">שומר…</string>
     <string name="lyrics_share_gradient">מעבר צבע</string>
-    <string name="lyrics_share_show_logo">הצגת הלוגו של BitChord</string>
+    <string name="lyrics_share_show_logo">הצגת הלוגו של Zotify Music</string>
     <string name="listening_shape">דפוס ההאזנה שלך</string>
     <string name="member_since">חבר מאז</string>
     <string name="member_since_value">חבר מאז %1$s</string>
@@ -1391,7 +1391,7 @@
     <string name="replay_period_monthly">חודשי</string>
     <string name="replay_period_yearly">שנתי</string>
     <string name="replay_period_lifetime">כל הזמן</string>
-    <string name="onboarding_title">מיליוני שירים, בסטרימינג ב-BitChord</string>
+    
     <string name="onboarding_name_prompt">איך לקרוא לך?</string>
     <string name="onboarding_name_hint">השם שלך</string>
     <string name="onboarding_name_footer">חברים רואים את זה כשמאזינים יחד. אפשר לשנות זאת מאוחר יותר בהגדרות.</string>
@@ -1602,8 +1602,8 @@
     <string name="font_footer">האפשרות קלאסי מחזירה את הגופן העבה והצפוף יותר שהאפליקציה השתמשה בו לפני שהותאמה ל-Apple Music.</string>
     <string name="bit_perfect_output">פלט Bit-perfect</string>
     <string name="bit_perfect_bypassed_footer">פלט Bit-perfect מוכן, ולכן ההגדרות המעומעמות אינן פעילות ולא מתבקשות גרסאות Dolby Atmos. הן יפעלו שוב כשה-DAC ינותק או כשהמצב ייכבה.</string>
-    <string name="bit_perfect_sheet_warning">שולח את הרצועה ל-DAC ללא שינוי. האקולייזר, נרמול העוצמה, ה-Crossfade, ה-Automix, מהירות ההשמעה ועוצמת הקול של BitChord אינם פעילים.</string>
-    <string name="bit_perfect_mode_off_subtitle">השמע עובר דרך המיקסר של Android והאפקטים של BitChord.</string>
+    <string name="bit_perfect_sheet_warning">שולח את הרצועה ל-DAC ללא שינוי. האקולייזר, נרמול העוצמה, ה-Crossfade, ה-Automix, מהירות ההשמעה ועוצמת הקול של Zotify Music אינם פעילים.</string>
+    <string name="bit_perfect_mode_off_subtitle">השמע עובר דרך המיקסר של Android והאפקטים של Zotify Music.</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 פותח את ה-DAC בקצב ובעומק הסיביות של כל רצועה, ללא מיקס וללא דגימה מחדש.</string>
     <string name="bit_perfect_requires_android_14">נדרש Android 14 ומעלה</string>
@@ -1611,13 +1611,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">לנגני מוזיקה עם DAC משלהם. פותח את יציאת האוזניות או הקו באופן בלעדי בקצב של כל רצועה. לא כל מכשיר מאפשר מצב בלעדי.</string>
     <string name="bit_perfect_requires_android_8_1">נדרש Android 8.1 ומעלה</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (מנהל התקן ישיר)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord מפעיל את ה-DAC בעצמו, בכל גרסת Android, וקובע את עוצמת הקול ב-DAC. מבקש הרשאת USB. עשוי להישמע חזק בהרבה מהפלט הרגיל.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">Zotify Music מפעיל את ה-DAC בעצמו, בכל גרסת Android, וקובע את עוצמת הקול ב-DAC. מבקש הרשאת USB. עשוי להישמע חזק בהרבה מהפלט הרגיל.</string>
     <string name="dac_volume">עוצמת קול של ה-DAC</string>
     <string name="dac_volume_subtitle">נקבעת ב-DAC עצמו; המוזיקה אינה משתנה</string>
     <string name="usb_allow_fixed_volume">אפשר רכיבי DAC ללא בקרת עוצמה</string>
     <string name="usb_allow_fixed_volume_subtitle">אחרת, DAC כזה ינגן דרך הפלט הרגיל</string>
     <string name="usb_allow_fixed_volume_confirm_title">לנגן בעוצמה מלאה?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord לא יכול לקבוע את עוצמת הקול של DAC מסוג זה, ולכן הוא מנגן בעוצמה מלאה ורק הכפתור שלו עצמו, אם יש כזה, שולט בעוצמה. הצליל עלול להיות חזק באופן מסוכן עם אוזניות רגישות.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">Zotify Music לא יכול לקבוע את עוצמת הקול של DAC מסוג זה, ולכן הוא מנגן בעוצמה מלאה ורק הכפתור שלו עצמו, אם יש כזה, שולט בעוצמה. הצליל עלול להיות חזק באופן מסוכן עם אוזניות רגישות.</string>
     <string name="convert_for_limited_dac">המרה לרכיבי DAC מוגבלים</string>
     <string name="convert_for_limited_dac_subtitle">ממיר רצועות שמעל למגבלת ה-DAC שלך לפורמט הגבוה ביותר שלו. ייתכן שהרצועות יתחילו לאט יותר, והן לא יהיו Bit-perfect ביחס למקור.</string>
     <string name="bit_perfect_confirm_title">להפעיל פלט Bit-perfect?</string>
