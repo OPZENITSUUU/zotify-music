@@ -43,6 +43,37 @@ private fun hostMatches(uri: Uri?, suffixes: List<String>): Boolean {
 private fun isLoginHost(uri: Uri?) = hostMatches(uri, LOGIN_HOST_SUFFIXES)
 
 /**
+ * Prefer the installed mobile Chrome identity over Android WebView's
+ * "; wv" / "Version/4.0" markers. Spotify serves its desktop layout to
+ * WebViews on some Android versions otherwise.
+ */
+private fun browserUserAgent(webViewUserAgent: String): String =
+    webViewUserAgent
+        .replace("; wv", "")
+        .replace(Regex(" Version/[0-9.]+"), "")
+
+/**
+ * Signs the login WebView out of Spotify. Disconnecting only forgot the
+ * stored cookie, and the WebView's own jar would have signed the next
+ * "Sign in" straight back in. Only Spotify's cookies go — the same jar holds
+ * the YouTube Music sign-in.
+ */
+fun clearSpotifyWebSession() {
+    val cookies = CookieManager.getInstance()
+    for (url in SPOTIFY_COOKIE_URLS) {
+        val names = cookies.getCookie(url)?.split(";")
+            ?.map { it.substringBefore("=").trim() }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+        for (name in names) {
+            val expired = "$name=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/"
+            cookies.setCookie(url, expired)
+            cookies.setCookie(url, "$expired; Domain=.spotify.com")
+        }
+    }
+    cookies.flush()
+
+/**
  * Signs the login WebView out of Spotify. Disconnecting only forgot the
  * stored cookie, and the WebView's own jar would have signed the next
  * "Sign in" straight back in. Only Spotify's cookies go — the same jar holds
@@ -69,7 +100,7 @@ fun clearSpotifyWebSession() {
  * login, then hands the `sp_dc` cookie to [onConnected] once the page lands on
  * open.spotify.com.
  *
- * Must be hosted as a root overlay, like [DiscordLoginScreen], never inside the
+ * Must be hosted as a root overlay, like [SpotifyLoginScreen], never inside the
  * page content: that subtree is the `hazeSource` and the glass backdrop, both of
  * which record it into a layer and draw it a second time. A WebView drawn twice
  * flickers, drops parts of the page, and on some devices takes the app down in
