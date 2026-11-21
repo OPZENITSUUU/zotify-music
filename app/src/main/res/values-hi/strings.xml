@@ -1668,4 +1668,9 @@
     <string name="drive_backup_row_subtitle">अपने सभी डिवाइस पर Replay का बैकअप और सिंक करें</string>
     <string name="drive_over_cellular">मोबाइल डेटा पर सिंक करें</string>
     <string name="drive_over_cellular_subtitle">बंद होने पर, ऑटो सिंक Wi-Fi का इंतज़ार करते हैं</string>
+
+    <!-- Preserved Zotify v1.0.8 strings -->
+    <string name="advanced_options">उन्नत विकल्प</string>
+    <string name="legacy_mesh_gradient">क्लासिक मेश ग्रेडिएंट</string>
+    <string name="legacy_mesh_gradient_subtitle">v1.5 से प्लेयर के पीछे बहने वाले रंग लौटाएं</string>
 </resources>
