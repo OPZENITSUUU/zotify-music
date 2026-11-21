@@ -496,7 +496,7 @@
     <string name="lyrics_share_image">Imagem</string>
     <string name="lyrics_share_saving">Salvando…</string>
     <string name="lyrics_share_gradient">Gradiente</string>
-    <string name="lyrics_share_show_logo">Mostrar logo do BitChord</string>
+    <string name="lyrics_share_show_logo">Mostrar logo do Zotify Music</string>
     <string name="listening_shape">Seu padrão de escuta</string>
     <string name="member_since">Membro desde</string>
     <string name="member_since_value">Membro desde %1$s</string>
@@ -1387,7 +1387,7 @@
     <string name="replay_period_monthly">Mensal</string>
     <string name="replay_period_yearly">Anual</string>
     <string name="replay_period_lifetime">Sempre</string>
-    <string name="onboarding_title">Milhões de músicas, em streaming no BitChord</string>
+    
     <string name="onboarding_name_prompt">Como devemos chamar você?</string>
     <string name="onboarding_name_hint">Seu nome</string>
     <string name="onboarding_name_footer">Seus amigos veem isso no Ouvir juntos. Você pode mudar depois em Configurações.</string>
@@ -1598,8 +1598,8 @@
     <string name="font_footer">Clássica traz de volta a letra mais grossa e compacta que o app usava antes de ser alinhado ao Apple Music.</string>
     <string name="bit_perfect_output">Saída bit-perfect</string>
     <string name="bit_perfect_bypassed_footer">A saída bit-perfect está pronta, então os ajustes esmaecidos são ignorados e as versões Dolby Atmos não são solicitadas. Eles voltam a funcionar quando o DAC é desconectado ou o modo é desativado.</string>
-    <string name="bit_perfect_sheet_warning">Envia a faixa ao DAC sem alterações. O equalizador, a normalização de volume, o fade cruzado, o Automix, a velocidade de reprodução e o volume do BitChord são ignorados.</string>
-    <string name="bit_perfect_mode_off_subtitle">O áudio passa pelo mixer do Android e pelos efeitos do BitChord.</string>
+    <string name="bit_perfect_sheet_warning">Envia a faixa ao DAC sem alterações. O equalizador, a normalização de volume, o fade cruzado, o Automix, a velocidade de reprodução e o volume do Zotify Music são ignorados.</string>
+    <string name="bit_perfect_mode_off_subtitle">O áudio passa pelo mixer do Android e pelos efeitos do Zotify Music.</string>
     <string name="bit_perfect_mode_usb_android">DAC USB</string>
     <string name="bit_perfect_mode_usb_android_subtitle">O Android 14 abre o DAC na taxa e na profundidade de bits de cada faixa, sem mixagem nem reamostragem.</string>
     <string name="bit_perfect_requires_android_14">Requer Android 14 ou posterior</string>
@@ -1607,13 +1607,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">Para players de música com DAC próprio. Abre a saída de fones ou de linha com exclusividade na taxa de cada faixa. Nem todo dispositivo concede o modo exclusivo.</string>
     <string name="bit_perfect_requires_android_8_1">Requer Android 8.1 ou posterior</string>
     <string name="bit_perfect_mode_usb_direct">DAC USB (driver direto)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">O BitChord controla o DAC diretamente, em qualquer versão do Android, e define o volume no próprio DAC. Pede permissão de USB. Pode ser bem mais alto que a saída normal.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">O Zotify Music controla o DAC diretamente, em qualquer versão do Android, e define o volume no próprio DAC. Pede permissão de USB. Pode ser bem mais alto que a saída normal.</string>
     <string name="dac_volume">Volume do DAC</string>
     <string name="dac_volume_subtitle">Definido no próprio DAC; a música não é escalonada</string>
     <string name="usb_allow_fixed_volume">Permitir DACs sem controle de volume</string>
     <string name="usb_allow_fixed_volume_subtitle">Caso contrário, esse DAC toca pela saída normal</string>
     <string name="usb_allow_fixed_volume_confirm_title">Tocar em escala total?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">O BitChord não consegue definir o volume desse tipo de DAC, então ele toca em escala total e só o botão do próprio DAC, se houver, controla o nível. Isso pode ser perigosamente alto com fones sensíveis.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">O Zotify Music não consegue definir o volume desse tipo de DAC, então ele toca em escala total e só o botão do próprio DAC, se houver, controla o nível. Isso pode ser perigosamente alto com fones sensíveis.</string>
     <string name="convert_for_limited_dac">Converter para DACs mais limitados</string>
     <string name="convert_for_limited_dac_subtitle">Converte faixas acima do limite do seu DAC para o formato mais alto dele. As faixas podem demorar mais para começar e não serão bit-perfect em relação ao original.</string>
     <string name="bit_perfect_confirm_title">Ativar a saída bit-perfect?</string>
