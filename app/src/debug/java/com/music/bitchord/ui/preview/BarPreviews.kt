@@ -111,6 +111,7 @@ private val PreviewSong = Song(
 private val PreviewTabs = listOf(
     BottomTab("Play", BitChordIcons.Play),
     BottomTab("Explore", BitChordIcons.TabExplore),
+    BottomTab("Radio", BitChordIcons.TabRadio),
     BottomTab("Library", BitChordIcons.TabLibrary),
     BottomTab("Search", BitChordIcons.TabSearch),
 )
@@ -135,7 +136,7 @@ private fun ChromeStack(scrolled: Boolean, withMiniPlayer: Boolean) {
         )
         FrostedTopBar(
             title = "Listen Now",
-            scrolled = scrolled,
+            scrolled = { scrolled },
             modifier = Modifier.align(Alignment.TopCenter),
         )
 
@@ -297,13 +298,13 @@ private fun TopBarBackdropPreview() {
                 .background(MaterialTheme.colorScheme.background),
         ) {
             Box(Modifier.height(160.dp)) {
-                FrostedTopBar(title = "At rest", scrolled = false)
+                FrostedTopBar(title = "At rest", scrolled = { false })
             }
             Box(Modifier.height(160.dp)) {
-                FrostedTopBar(title = "Scrolled", scrolled = true)
+                FrostedTopBar(title = "Scrolled", scrolled = { true })
             }
             Box(Modifier.height(160.dp)) {
-                FrostedTopBar(title = "Pushed page", scrolled = true, onBack = {})
+                FrostedTopBar(title = "Pushed page", scrolled = { true }, onBack = {})
             }
         }
     }

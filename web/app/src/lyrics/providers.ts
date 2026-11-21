@@ -1,5 +1,6 @@
-import { line, lineAlignments, withInstrumentalGaps, wordsFromRuns, type LyricLine, type TimedRun } from './model';
+import { INSTRUMENTAL_NOTICE, line, lineAlignments, withInstrumentalGaps, wordsFromRuns, type LyricLine, type TimedRun } from './model';
 import { decodeEntities, parseEnhancedLrc, parseLrc, parseProvider, parseTtml, plainLines, type Parsed } from './parse';
+import { findLyricsBrowseId, timedYoutubeLyrics } from './youtube';
 import { lyricsGet, urlWith } from './http';
 import { appleWebToken } from '@/data/apple/webToken';
 
@@ -420,15 +421,28 @@ function youtubeText(node: unknown): string {
   return '';
 }
 
-/** Plain lyrics from the Lyrics tab of the exact playing video. */
+/** Timed lyrics from the Lyrics tab of the exact playing video. */
 export async function youtubeMusicLyrics(q: LyricsQuery): Promise<Parsed | null> {
   if (!/^[A-Za-z0-9_-]{11}$/.test(q.videoId)) return null;
   try {
-    const { getMusicClient } = await import('@/playback/youtube/innertube');
+    const { getMusicClient, browseAsAndroidMusic } = await import('@/playback/youtube/innertube');
     const yt = await getMusicClient();
+    // The web client is answered with the plain description shelf even when
+    // the track has timed lyrics; only the Android Music client gets the
+    // timedLyricsModel. Ask as the phone first, then fall back to the shelf.
+    try {
+      const watch = await yt.actions.execute('/next', { videoId: q.videoId, client: 'YTMUSIC', parse: false });
+      const browseId = findLyricsBrowseId(watch.data);
+      if (browseId) {
+        const timed = timedYoutubeLyrics(await browseAsAndroidMusic(yt, browseId));
+        if (timed) return fromLines(timed);
+      }
+    } catch {
+      // The shelf below is still worth asking for.
+    }
     const shelf = await yt.music.getLyrics(q.videoId);
     const text = shelf?.description?.toString().trim();
-    return text ? fromLines(text.split(/\r?\n/).map((t) => t.trim()).filter(Boolean).map((t) => line(0, t))) : null;
+    return text ? fromLines(plainLines(text)) : null;
   } catch {
     return null;
   }
@@ -486,6 +500,14 @@ export function stripKugouCredits(lrc: string): string {
   return body.slice(0, body.length - tail).join('\n');
 }
 
+const KUGOU_STAMP = /\[\d{2}:\d{2}\.\d{2,3}\]/g;
+
+/** A file holding nothing but KuGou's "纯音乐，请欣赏" ("pure music, please enjoy") notice. */
+export function isKugouInstrumentalNotice(lrc: string): boolean {
+  const lines = lrc.split(/\r?\n/).map((l) => l.replace(KUGOU_STAMP, '').trim()).filter(Boolean);
+  return lines.length > 0 && lines.every((l) => INSTRUMENTAL_NOTICE.test(l));
+}
+
 export async function kugou(q: LyricsQuery): Promise<Parsed | null> {
   const keyword = `${stripParenthetical(q.title)} - ${stripParenthetical(q.artist)}${q.album ? ` ${q.album}` : ''}`;
   const secs = Math.floor(q.durationMs / 1000);
@@ -513,7 +535,9 @@ export async function kugou(q: LyricsQuery): Promise<Parsed | null> {
   if (!download?.content) return null;
   try {
     const lrc = new TextDecoder().decode(Uint8Array.from(atob(download.content), (c) => c.charCodeAt(0)));
-    return fromLines(parseLrc(stripKugouCredits(lrc)));
+    const stripped = stripKugouCredits(lrc);
+    if (isKugouInstrumentalNotice(stripped)) return null;
+    return fromLines(parseLrc(stripped));
   } catch {
     return null;
   }

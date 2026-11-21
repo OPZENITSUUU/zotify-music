@@ -1,11 +1,10 @@
 # BitChord v1.10 source integration
 
 - Upstream release: https://github.com/kushagrasinghx/BitChord/releases/tag/v1.10
-- Three-way base:  (Zotify's original BitChord snapshot)
-- Upstream source commit: 
-- Apply exit code: 
-- Conflicts union-merged in Kotlin/Java: 0
-- Conflicts kept from Zotify for non-code/configuration: 0
+- Actual three-way base: edc1e6f36febf71a118e649411d2fc21b70ead45
+- Upstream v1.10 merge commit: 21356206de5594ca0bdaf4680ca2db68a2287729
+- Git merge exit code: 1
+- Conflicts union-merged: 42
+- Conflicts retained from Zotify: 17
 
-Zotify's app ID, namespace, product branding, signing configuration, update asset prefix, independent version numbering, and GitHub release pipeline remain owned by Zotify. The upstream source changes were merged from the original fork snapshot using Git's three-way merge; Kotlin/Java conflicts retain both sides for compiler/test validation.
-
+Zotify package/application ID, resource namespace, branding, signing configuration, updater prefix, app version numbering, and release pipeline are preserved. The merge uses the original shared BitChord ancestor, not a patch-only approximation. Phone/TV build dependencies for Drive backup and video-based lyrics sharing are included.

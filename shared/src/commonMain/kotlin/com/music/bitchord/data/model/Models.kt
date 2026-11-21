@@ -10,6 +10,14 @@ enum class QueueTier {
     AUTOPLAY,
 }
 
+/** Identity of one occurrence in a live queue, independent of its timeline index. */
+data class QueueEntryIdentity(
+    val mediaId: String,
+    val queueEntryId: String?,
+    /** Zero-based occurrence among entries with the same media and queue-entry ids. */
+    val occurrence: Int,
+)
+
 /**
  * One credited artist, as YouTube Music itself states them.
  *
@@ -135,6 +143,12 @@ data class Song(
     val playbackSourceType: PlaybackSourceType? = null,
     /** Browse id for an album, playlist, or other source page. */
     val playbackSourceId: String? = null,
+    /**
+     * Feedback token extracted from the watch-queue row's menu — used to remove
+     * this entry from the account's listening history on YouTube Music. Null on
+     * non-history rows (e.g. search results, library).
+     */
+    val feedbackToken: String? = null,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
@@ -297,10 +311,10 @@ fun String?.durationMillis(): Long {
 fun String?.artworkAt(px: Int): String? {
     if (this == null) return null
     val sized = this.replace(SIZE_HINT, "w$px-h$px")
-    return if (isGoogleImageHost(this)) {
-        sized.replace(PARAM_SIZE_HINT, "=s$px")
-    } else {
-        sized
+    return when {
+        isGoogleImageHost(this) -> sized.replace(PARAM_SIZE_HINT, "=s$px")
+        isYouTubeThumbnailHost(this) -> upgradeYouTubeThumbnail(sized, px)
+        else -> sized
     }
 }
 
@@ -314,6 +328,61 @@ private fun isGoogleImageHost(url: String): Boolean {
     return host == "ggpht.com" || host.endsWith(".ggpht.com") ||
         host == "googleusercontent.com" || host.endsWith(".googleusercontent.com")
 }
+
+internal fun isYouTubeThumbnailHost(url: String): Boolean {
+    val host = url.substringAfter("://", "")
+        .ifEmpty { url.substringAfter("//", "") }
+        .substringBefore('/')
+        .substringBefore(':')
+        .substringBefore('?')
+        .lowercase()
+    return host == "i.ytimg.com" || host.endsWith(".ytimg.com") ||
+        host == "img.youtube.com" || host.endsWith(".youtube.com")
+}
+
+/** YouTube's thumbnail renditions, smallest to largest. Every video has `hqdefault`. */
+private val YT_THUMB_NAME_REGEX = Regex("/(default|mqdefault|hqdefault|sddefault|hq720|maxresdefault)\\.([a-zA-Z0-9]+)")
+
+/** The renditions an old or low-resolution upload doesn't have: each answers 404 for it. */
+private val YT_UPGRADED_RENDITIONS = setOf("sddefault", "hq720", "maxresdefault")
+
+internal fun upgradeYouTubeThumbnail(url: String, px: Int): String {
+    val match = YT_THUMB_NAME_REGEX.find(url) ?: return url
+    val current = match.groupValues[1]
+    val target = when {
+        px >= 480 -> "maxresdefault"
+        px >= 240 -> "sddefault"
+        // A row keeps the small copy it came with, but an upgraded URL — one
+        // read back off the lock screen's artwork, say — comes back down to
+        // the one every video has, rather than a list row loading a 1280px
+        // cover, or nothing, where the video has no such size.
+        current in YT_UPGRADED_RENDITIONS -> "hqdefault"
+        else -> return url
+    }
+    return if (target == current) url else withRendition(url, match, target)
+}
+
+/**
+ * The copy every YouTube video has, for a thumbnail [artworkAt] asked a larger
+ * rendition of; null when [url] is no such thumbnail. Old and low-resolution
+ * uploads have no `sddefault` or `maxresdefault` (YouTube answers 404), so
+ * whatever loads one of those needs this to fall back on — and a loader that
+ * can't fall back should be handed this instead.
+ */
+fun youTubeThumbnailFallback(url: String): String? {
+    if (!isYouTubeThumbnailHost(url)) return null
+    val match = YT_THUMB_NAME_REGEX.find(url) ?: return null
+    if (match.groupValues[1] !in YT_UPGRADED_RENDITIONS) return null
+    return withRendition(url, match, "hqdefault")
+}
+
+/**
+ * [url] naming [rendition] instead. The query (`sqp=…&rs=…`) is dropped: it
+ * signs the rendition it came with, and the bare path serves any of them.
+ */
+private fun withRendition(url: String, match: MatchResult, rendition: String): String =
+    (url.substring(0, match.range.first) + "/$rendition.${match.groupValues[2]}" + url.substring(match.range.last + 1))
+        .substringBefore('?')
 
 private val SIZE_HINT = Regex("""w\d+-h\d+""")
 private val PARAM_SIZE_HINT = Regex("""=s\d+""")
@@ -351,6 +420,9 @@ const val NOTIFICATION_ART_PX = 544
  */
 const val PLAYER_ART_PX = 1200
 
+/** Memory-cache namespace shared by the player and same-resolution widgets. */
+const val PLAYER_ART_MEMORY_CACHE_KEY_EXTRA = "bitchord_player_art_px"
+
 enum class BrowseType { ALBUM, ARTIST, PLAYLIST, OTHER }
 
 /** A queue-level origin shown above Now Playing, in the style of Spotify. */
@@ -382,7 +454,11 @@ sealed interface SearchResult {
     data class Browse(val item: BrowseItem) : SearchResult
 }
 
-enum class SearchFilter(val label: String, val params: String?) {
+enum class SearchFilter(
+    val label: String,
+    val params: String?,
+    val requiresAuth: Boolean = false,
+) {
     /** YouTube Music's mixed search page: songs, artists, albums and playlists. */
     ALL("All", null),
     SONGS("Songs", "EgWKAQIIAWoKEAkQChAFEAMQBA=="),
@@ -390,6 +466,7 @@ enum class SearchFilter(val label: String, val params: String?) {
     ALBUMS("Albums", "EgWKAQIYAWoKEAkQChAFEAMQBA=="),
     ARTISTS("Artists", "EgWKAQIgAWoKEAkQChAFEAMQBA=="),
     PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA=="),
+    LIBRARY("Library", "agIYBA==", requiresAuth = true);
 }
 
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */
@@ -399,7 +476,31 @@ data class ShelfItem(
     val thumbnailUrl: String?,
     val videoId: String?,
     val browseId: String?,
+    /**
+     * A music-video upload rather than a catalogue track: widescreen art, and a
+     * picture the player can show. Drawn as a 16:9 card, as the web player does.
+     */
+    val isVideo: Boolean = false,
 )
+
+/**
+ * A "Mixed for you" card and its English title, which is what says what kind
+ * of mix it is whatever language [item] is shown in — see
+ * [com.music.bitchord.data.YtMusicRepository.mixedForYouKeyed].
+ */
+data class KeyedMix(val item: ShelfItem, val englishTitle: String)
+
+/** How a shelf's items are laid out — the web player's `ShelfLayout`, by the same rules. */
+enum class ShelfLayout {
+    /** Square cards in one scrolling row. */
+    CARDS,
+
+    /** Track rows, four to a column — Quick picks, Listen again, Recents. */
+    LIST,
+
+    /** Widescreen cards for music videos. */
+    VIDEO,
+}
 
 /** The signed-in Google account, as YouTube Music reports it. */
 data class Account(
@@ -445,7 +546,29 @@ data class HomeShelf(
     val subtitle: String = "",
     val moreBrowseId: String? = null,
     val moreParams: String? = null,
+    val layout: ShelfLayout = ShelfLayout.CARDS,
 )
+
+/** These shelves without their music videos, and without any shelf that leaves empty. */
+fun List<HomeShelf>.withoutVideos(): List<HomeShelf> = mapNotNull { shelf ->
+    if (shelf.layout == ShelfLayout.VIDEO) return@mapNotNull null
+    val items = shelf.items.filterNot { it.isVideo }
+    if (items.isEmpty()) null else shelf.copy(items = items)
+}
+
+/**
+ * The layout a shelf of [items] gets, as the web player decides it: rows when
+ * YouTube itself listed tracks as rows (or the shelf is Listen again, which the
+ * web player shows that way), widescreen cards when most of it is videos.
+ */
+fun shelfLayoutFor(title: String, items: List<ShelfItem>, fromList: Boolean): ShelfLayout {
+    if (items.isEmpty()) return ShelfLayout.CARDS
+    val first = items.first()
+    if (fromList && first.videoId != null) return ShelfLayout.LIST
+    if (title.trim().equals("Listen again", ignoreCase = true)) return ShelfLayout.LIST
+    if (items.count { it.isVideo } * 2 > items.size) return ShelfLayout.VIDEO
+    return ShelfLayout.CARDS
+}
 
 /**
  * These shelves minus any that mostly repeat one already on the page, or one earlier in this
@@ -607,6 +730,10 @@ data class ArtistPage(
     val monthlyListenerCount: String? = null,
     /** The header's subscribe button, when the page carries one. */
     val subscription: SubscriptionState? = null,
+    /** The header's Mix button: the artist's radio, them and the artists around them. */
+    val radio: WatchTarget? = null,
+    /** The header's Shuffle button: the artist's own catalogue, shuffled. */
+    val shuffle: WatchTarget? = null,
 )
 
 /**

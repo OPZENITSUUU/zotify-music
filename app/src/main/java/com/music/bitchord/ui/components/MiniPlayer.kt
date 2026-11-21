@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -51,7 +51,6 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,18 +59,25 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.sharedui.resources.Res as SharedRes
-import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.PlayerSkipGlyph
+import com.music.bitchord.ui.player.PlayerSkipMotion
+import com.music.bitchord.ui.player.rememberPlayerSkipMotion
+import com.music.bitchord.ui.player.PlayerPlayPauseGlyph
+import com.music.bitchord.ui.player.rememberPlayerPlayPauseMotion
+import com.music.bitchord.ui.player.AndroidMusicVideo
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.animateDpAsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -341,6 +347,9 @@ internal fun Modifier.playerDockArt(dock: PlayerDock?, corner: Dp): Modifier {
         .graphicsLayer { alpha = if (dock.coversMiniArt) 0f else 1f }
 }
 
+/** The mini player's cover for a music video: 16:9 at the cover's 40dp height. */
+private val VIDEO_ART_WIDTH = 71.dp
+
 /** Frosted mini player that rides just above the floating tab bar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -360,10 +369,20 @@ fun MiniPlayer(
     dock: PlayerDock? = null,
     /** Dragging the bar up into the player. */
     pull: MiniPlayerPull? = null,
+    /** False while the expanded player covers this bar. */
+    animationsActive: Boolean = true,
     modifier: Modifier = Modifier,
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val nextMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
+    val playPauseMotion = rememberPlayerPlayPauseMotion(
+        isPlaying = isPlaying,
+        active = animationsActive && !isLoading,
+        reduceMotion = reduceAnimation,
+    )
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
@@ -416,29 +435,54 @@ fun MiniPlayer(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                contentDescription = null,
+            // A music video plays here at its own 16:9, as the web player's
+            // mini player does, rather than cropped into the square cover.
+            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
+            val artWidth by animateDpAsState(
+                targetValue = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp,
+                label = "miniArtWidth",
+            )
+            Box(
                 modifier = Modifier
                     .size(40.dp)
                     .playerDockArt(dock, artworkCorner)
                     .clip(RoundedCornerShape(artworkCorner))
                     .thumbnailBorder(RoundedCornerShape(artworkCorner))
+                    .size(width = artWidth, height = 40.dp)
+                    .playerDockArt(dock, ART_CORNER)
+                    .clip(RoundedCornerShape(ART_CORNER))
+                    .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
+            ) {
+                MiniPlayerArtwork(song, autoMixArtwork)
+                // A music video keeps playing in the cover's place, cropped to
+                // it, as the web player's mini player does — the full player,
+                // when it is up, takes the picture over.
+                if (showsPicture) {
+                    AndroidMusicVideo(
+                        videoId = song.videoId,
+                        fit = false,
+                        onRenderedChanged = {},
+                        modifier = Modifier.fillMaxSize(),
+                        priority = 0,
+                    )
+                }
+            }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
+                // The badge in the artist line's colour and a long line faded
+                // out at its end, as on the glass bar's mini player.
                 ExplicitSongTitle(
                     song = song,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
+                    badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fadeOverflow = true,
                 )
-                Text(
+                FadingLine(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
             if (isLoading) {
@@ -453,12 +497,17 @@ fun MiniPlayer(
                 IconButton(
                     onClick = {
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
+                        playPauseMotion.onTap()
                         onPlayPause()
                     },
                     modifier = Modifier.size(GLYPH_SLOT),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    PlayerPlayPauseGlyph(
+                        motion = playPauseMotion,
+                        play = Icons.Rounded.PlayArrow,
+                        pause = Icons.Rounded.Pause,
+                        playPainter = rememberVectorPainter(Icons.Rounded.PlayArrow),
+                        pausePainter = rememberVectorPainter(Icons.Rounded.Pause),
                         contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
                         tint = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(GLYPH_SIZE),
@@ -471,17 +520,30 @@ fun MiniPlayer(
             IconButton(
                 onClick = {
                     haptics.play(Haptic.SkipNext)
+                    nextMotion.onTap()
                     onNext()
                 },
                 enabled = !controlsLocked,
                 modifier = Modifier.size(GLYPH_SLOT),
             ) {
                 MiniPlayerNextGlyph(
+                    motion = nextMotion,
                     tint = MaterialTheme.colorScheme.onBackground
                         .copy(alpha = if (controlsLocked) 0.3f else 1f),
                 )
             }
         }
+    }
+}
+
+@Composable
+internal fun MiniPlayerArtwork(song: Song, autoMixArtwork: (@Composable (String?, Modifier) -> Unit)?) {
+    val model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX)
+    val modifier = Modifier.fillMaxSize()
+    if (autoMixArtwork != null) {
+        autoMixArtwork(model, modifier)
+    } else {
+        AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
     }
 }
 
@@ -494,9 +556,9 @@ fun MiniPlayer(
  * read as one glyph at two sizes. Shared with the glass bar's docked player.
  */
 @Composable
-internal fun MiniPlayerNextGlyph(tint: Color) {
-    Icon(
-        painter = painterResource(SharedRes.drawable.ic_player_next),
+internal fun MiniPlayerNextGlyph(tint: Color, motion: PlayerSkipMotion) {
+    PlayerSkipGlyph(
+        motion = motion,
         contentDescription = stringResource(R.string.widget_next),
         tint = tint,
         modifier = Modifier

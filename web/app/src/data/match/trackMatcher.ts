@@ -128,6 +128,20 @@ export function normalize(text: string): string {
     .replace(CJK_CLOSE, ')');
 }
 
+/**
+ * TrackMatcher.foldLatin: Latin letters without their accents, for comparing
+ * only ("Şımarık" / "Simarik"). Other scripts keep their combining marks.
+ */
+export function foldLatin(text: string): string {
+  return [...text]
+    .map((c) => {
+      if (c === 'ı') return 'i';
+      if (c.charCodeAt(0) < 0x80 || !/\p{Script=Latin}/u.test(c)) return c;
+      return c.normalize('NFD').replace(/\p{Mn}/gu, '');
+    })
+    .join('');
+}
+
 // ── Asking ─────────────────────────────────────────────────────────────────
 
 /** What to put to a search box, best query first (TrackMatcher.queries). */
@@ -184,6 +198,7 @@ export function score(candidate: MatchCandidate, target: MatchTarget): number | 
   const isTitleMatch =
     wanted.core === got.core ||
     romajiOf(wanted.core) === romajiOf(got.core) ||
+    isTranslationMatch(wanted, got) ||
     (!([...wanted.core].length <= 3 || [...got.core].length <= 3) &&
       (wanted.core.includes(got.core) || got.core.includes(wanted.core)));
   if (!isTitleMatch) return null;
@@ -295,7 +310,7 @@ export function parseTitle(raw: string, artist = ''): TitleParts {
     } else break;
   }
 
-  const core = containsCJK ? text.replace(CJK_CORE_STRIP, '') : words.join('');
+  const core = containsCJK ? text.replace(CJK_CORE_STRIP, '') : foldLatin(words.join(''));
   return { words, core, versions, context };
 }
 
@@ -308,7 +323,32 @@ function classify(segment: string, versions: Set<string>, context: Set<string>):
     marks.forEach((m) => versions.add(m));
     return;
   }
-  words.filter((w) => [...w].length > 2 && !NOISE_WORDS.has(w)).forEach((w) => context.add(w));
+  // A single CJK syllable is a whole title: the length gate exists
+  // for Latin glue words and must not drop it.
+  words.filter((w) => ([...w].length > 2 || CJK.test(w)) && !NOISE_WORDS.has(w)).forEach((w) => context.add(w));
+}
+
+function containsCJKChar(text: string): boolean {
+  return CJK.test(text);
+}
+
+/**
+ * Whether a bracketed aside is the same title in another script rather
+ * than packaging around it. True when one core is CJK-only, the other is
+ * Latin, and the other's aside is that core in full (one word of a longer
+ * aside is not enough). Same-script asides never qualify.
+ */
+export function isTranslationMatch(wanted: TitleParts, got: TitleParts): boolean {
+  const wantedCJK = containsCJKChar(wanted.core) && !hasFilingLatin(wanted.core);
+  const gotCJK = containsCJKChar(got.core) && !hasFilingLatin(got.core);
+  const wantedLatin = hasFilingLatin(wanted.core);
+  const gotLatin = hasFilingLatin(got.core);
+  if ((wantedCJK && gotLatin) || (gotCJK && wantedLatin)) {
+    // Folded as the core is: "東京 (Tōkyō)" files the upload "Tōkyō".
+    if (foldLatin([...wanted.context].join('')) === got.core) return true;
+    if (foldLatin([...got.context].join('')) === wanted.core) return true;
+  }
+  return false;
 }
 
 function isArtistName(text: string, artist: string): boolean {
@@ -451,7 +491,7 @@ function artistScore(wanted: string, got: string): number | null {
 /** The credited artists, each as its own list of words; a Set in Kotlin, de-duplicated here. */
 export function artistNames(value: string): string[][] {
   const seen = new Map<string, string[]>();
-  for (const name of normalize(value).split(ARTIST_SEPARATORS)) {
+  for (const name of foldLatin(normalize(value)).split(ARTIST_SEPARATORS)) {
     const words = name.split(WORD_SPLIT).map(strip).filter((w) => [...w].length > 1);
     if (words.length) seen.set(words.join(' '), words);
   }
