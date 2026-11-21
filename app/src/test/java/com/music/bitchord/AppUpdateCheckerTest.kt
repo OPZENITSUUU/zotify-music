@@ -29,15 +29,45 @@ class AppUpdateCheckerTest {
     }
 
     @Test
-    fun `universal official Void Music release APK is selected with normalized digest`() {
-        val split = asset(name = "Zotify.Music_arm64-v8a.apk")
-        val universal = asset(name = "Zotify.Music.apk", digestValue = "sha256:$digest")
+    fun `matching arm64 APK is preferred over universal release APK`() {
+        val arm64 = asset(name = "Zotify.Music_arm64-v8a.apk")
+        val universal = asset(name = "Zotify.Music.apk")
 
-        val selected = AppUpdateChecker.verifiedApkAsset(release(split, universal))
+        val selected = AppUpdateChecker.verifiedApkAsset(
+            release(universal, arm64),
+            supportedAbis = listOf("arm64-v8a", "armeabi-v7a"),
+        )
 
-        assertEquals("Zotify.Music", selected?.name)
-        assertEquals("https://github.com/OPZENITSUUU/zotify-music/releases/download/v2/Zotify.Music.apk", selected?.url)
+        assertEquals("Zotify.Music_arm64-v8a.apk", selected?.name)
+        assertEquals("https://github.com/OPZENITSUUU/zotify-music/releases/download/v2/Zotify.Music_arm64-v8a.apk", selected?.url)
         assertEquals(digest, selected?.sha256)
+    }
+
+    @Test
+    fun `universal APK is fallback when no matching ABI split exists`() {
+        val armv7 = asset(name = "Zotify.Music_armeabi-v7a.apk")
+        val universal = asset(name = "Zotify.Music.apk")
+
+        val selected = AppUpdateChecker.verifiedApkAsset(
+            release(armv7, universal),
+            supportedAbis = listOf("x86_64"),
+        )
+
+        assertEquals("Zotify.Music.apk", selected?.name)
+        assertEquals("https://github.com/OPZENITSUUU/zotify-music/releases/download/v2/Zotify.Music.apk", selected?.url)
+    }
+
+    @Test
+    fun `APK for another app or unsupported ABI is never selected`() {
+        val otherApp = asset(name = "ZotifyMusicTV-v1.8_arm64-v8a.apk")
+        val unsupportedSplit = asset(name = "Zotify.Music_x86_64.apk")
+
+        assertNull(
+            AppUpdateChecker.verifiedApkAsset(
+                release(otherApp, unsupportedSplit),
+                supportedAbis = listOf("arm64-v8a"),
+            ),
+        )
     }
 
     @Test
