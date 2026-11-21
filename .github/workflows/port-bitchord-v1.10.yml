@@ -1,0 +1,128 @@
+name: One-time BitChord v1.10 source port
+
+on:
+  push:
+    branches:
+      - integration/bitchord-v1.10
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zotify-bitchord-v1.10-port
+  cancel-in-progress: false
+
+jobs:
+  port-and-validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out Zotify integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Apply BitChord v1.10 source changes with three-way merge
+        shell: bash
+        env:
+          UPSTREAM_BASE: ad78ef2bd508aa6413afb64d6e4948a3caf4b6e4
+          UPSTREAM_MERGE: 21356206de5594ca0bdaf4680ca2db68a2287729
+        run: |
+          set -euo pipefail
+          git remote add bitchord https://github.com/kushagrasinghx/BitChord.git
+          git fetch --no-tags bitchord main
+          git cat-file -e "${UPSTREAM_BASE}^{commit}"
+          git cat-file -e "${UPSTREAM_MERGE}^{commit}"
+
+          patch_file="$RUNNER_TEMP/bitchord-v1.10.patch"
+          git diff --binary --full-index "$UPSTREAM_BASE" "$UPSTREAM_MERGE" -- . ':(exclude).github/**' ':(exclude)README.md' > "$patch_file"
+          echo "Patch bytes: $(wc -c < "$patch_file")"
+
+          set +e
+          git apply --3way --index "$patch_file"
+          apply_status=$?
+          set -e
+
+          mapfile -d '' -t conflicts < <(git diff --name-only --diff-filter=U -z)
+          {
+            echo "## BitChord v1.10 integration"
+            echo
+            echo "- Upstream: [kushagrasinghx/BitChord v1.10](https://github.com/kushagrasinghx/BitChord/releases/tag/v1.10)"
+            echo "- Upstream merge commit: `$UPSTREAM_MERGE`"
+            echo "- Three-way apply exit code: `$apply_status`"
+            echo "- Conflicting paths: ${#conflicts[@]}"
+            echo
+            if (( ${#conflicts[@]} )); then
+              echo "### Paths retained from Zotify pending manual feature-level reconciliation"
+              for path in "${conflicts[@]}"; do echo "- `$path`"; done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Keep Zotify's existing implementation for conflicted files. Non-conflicting
+          # upstream hunks and brand-new source files remain applied. Conflicts are
+          # listed in the job summary for targeted follow-up, never silently discarded.
+          for path in "${conflicts[@]}"; do
+            if git ls-tree -e HEAD -- "$path" | grep -q .; then
+              git checkout --ours -- "$path"
+              git add -- "$path"
+            else
+              git rm -f --ignore-unmatch -- "$path" >/dev/null || true
+              rm -f -- "$path"
+            fi
+          done
+
+          # The code package remains com.music.bitchord, but this distribution's
+          # Android resource namespace is com.music.zotifymusic.
+          while IFS= read -r -d '' file; do
+            sed -i 's/com\.music\.bitchord\.R/com.music.zotifymusic.R/g' "$file"
+          done < <(git grep -Ilz 'com.music.bitchord.R' -- app tv wearos 2>/dev/null || true)
+
+          # Preserve the Zotify package identity and its own release/build configuration.
+          git add -A
+          git diff --cached --check
+
+          report="BITCHORD_V1_10_PORT_REPORT.md"
+          {
+            echo "# BitChord v1.10 source port"
+            echo
+            echo "- Upstream release: https://github.com/kushagrasinghx/BitChord/releases/tag/v1.10"
+            echo "- Upstream merge commit: `$UPSTREAM_MERGE`"
+            echo "- Upstream base commit: `$UPSTREAM_BASE`"
+            echo "- Conflicted files retained from Zotify: ${#conflicts[@]}"
+            echo
+            echo "Zotify's app ID, resource namespace, branding, signing configuration, updater feed, and independent release numbering are retained. New upstream files and non-conflicting changes are ported; conflict files are preserved for focused reconciliation."
+            echo
+            if (( ${#conflicts[@]} )); then
+              echo "## Conflicts requiring focused review"
+              for path in "${conflicts[@]}"; do echo "- `$path`"; done
+            fi
+          } > "$report"
+          git add "$report"
+
+          # Remove this temporary one-shot workflow from the resulting product branch.
+          rm -f .github/workflows/port-bitchord-v1.10.yml
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "::error::The upstream patch produced no source changes."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: port compatible BitChord v1.10 updates"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Run shared and Android unit tests
+        run: ./gradlew --no-daemon --stacktrace --console=plain :shared:jvmTest :sharedUi:jvmTest :app:testProdDebugUnitTest
+
+      - name: Build Zotify phone and TV debug variants
+        run: ./gradlew --no-daemon --stacktrace --console=plain :app:assembleProdDebug :tv:assembleProdDebug
