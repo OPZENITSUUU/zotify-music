@@ -29,16 +29,19 @@ app.get("/health", (_req, res) => res.status(ready ? 200 : 503).json({ ok: ready
 
 app.post("/presence", authorized, (req, res) => {
   if (!ready || !client.user) return res.status(503).json({ error: "bot_not_ready" });
-  const { title, artist, paused = false } = req.body || {};
+  const { title, artist, paused = false, activityType = "listening", activityName = "" } = req.body || {};
   if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title_required" });
   const safeTitle = title.trim().slice(0, 90);
   const safeArtist = typeof artist === "string" ? artist.trim().slice(0, 70) : "";
-  const label = safeArtist ? `${safeTitle} — ${safeArtist}` : safeTitle;
-  client.user.setPresence({
-    status: paused ? "idle" : "online",
-    activities: [{ name: label, type: ActivityType.Listening }]
-  });
-  return res.json({ ok: true, activity: label, status: paused ? "idle" : "online" });
+  const customName = typeof activityName === "string" ? activityName.trim().slice(0, 32) : "";
+  const trackLabel = safeArtist ? `${safeTitle} — ${safeArtist}` : safeTitle;
+  const label = customName ? `${customName}: ${trackLabel}` : trackLabel;
+  const types = { playing: ActivityType.Playing, listening: ActivityType.Listening, watching: ActivityType.Watching, competing: ActivityType.Competing };
+  const type = types[String(activityType).toLowerCase()] ?? ActivityType.Listening;
+  const statuses = ["online", "idle", "dnd", "invisible"];
+  const status = paused ? "idle" : (statuses.includes(req.body?.status) ? req.body.status : "online");
+  client.user.setPresence({ status, activities: [{ name: label, type }] });
+  return res.json({ ok: true, activity: label, status, activityType: String(activityType).toLowerCase() });
 });
 
 app.post("/clear", authorized, (_req, res) => {

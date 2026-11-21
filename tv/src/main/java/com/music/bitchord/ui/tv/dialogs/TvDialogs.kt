@@ -1148,26 +1148,26 @@ private fun TvGoogleSignIn(viewModel: MainViewModel, onBack: () -> Unit, onSigne
 @Composable
 fun TvDiscordDialog(onDismiss: () -> Unit) {
     val enabled by AppSettings.discordRpcEnabled.collectAsState()
-    val savedToken by AppSettings.discordToken.collectAsState()
-    var token by remember { mutableStateOf(savedToken) }
+    val savedSecret by AppSettings.discordBotSecret.collectAsState()
+    var secret by remember { mutableStateOf(savedSecret) }
 
     TvDialog(
         title = "Discord",
-        message = "Show what you're listening to in your Discord status.",
+        message = "Show what you're listening to through your official Zotify Discord bot. Enter the Render bridge secret.",
         onDismissRequest = onDismiss,
     ) {
         TvTextField(
-            value = token,
-            onValueChange = { token = it },
-            placeholder = "Discord Token",
+            value = secret,
+            onValueChange = { secret = it },
+            placeholder = "Zotify bot bridge secret",
             modifier = Modifier.tvInitialFocus(),
         )
         Spacer(modifier = Modifier.height(16.dp))
         TvDialogButton(
             text = if (enabled) "Turn Off" else "Turn On",
-            enabled = enabled || token.isNotBlank(),
+            enabled = enabled || secret.isNotBlank(),
             onClick = {
-                AppSettings.setDiscordToken(token)
+                AppSettings.setDiscordBotSecret(secret)
                 AppSettings.setDiscordRpcEnabled(!enabled)
                 onDismiss()
             },

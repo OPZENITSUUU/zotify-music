@@ -57,17 +57,14 @@ import coil3.compose.AsyncImage
 import com.music.zotifymusic.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.discord.DiscordRPC
-import com.music.bitchord.data.discord.SuperProperties
 import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.ChoiceAlert
-import com.music.bitchord.ui.components.DiscordTokenAlert
 import com.music.bitchord.ui.components.TextValueAlert
 import com.music.bitchord.ui.components.thumbnailBorder
-import com.my.kizzy.rpc.KizzyRPC
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -97,7 +94,7 @@ enum class DiscordActivityKind(val value: String, val verb: String, val label: S
  * rendered by the activity, above the tab bar and mini player, rather than
  * inside the scrolling screen where a full-screen scrim would be trapped.
  */
-enum class DiscordDialog { TOKEN, STATUS, ACTIVITY_TYPE, ACTIVITY_NAME }
+enum class DiscordDialog { BOT_SECRET, STATUS, ACTIVITY_TYPE, ACTIVITY_NAME }
 
 private fun statusOf(value: String) =
     DiscordPresenceStatus.entries.firstOrNull { it.value == value } ?: DiscordPresenceStatus.ONLINE
@@ -150,9 +147,7 @@ private fun DiscordActivityKind.localizedVerb(): String =
  * Discord Rich Presence: the account it posts as, what the card says, and a
  * live preview of it.
  *
- * The preview is the point of the screen. Every field here changes something
- * about a card the user cannot see from inside this app — so it draws the card
- * as Discord will, from the track actually playing, and updates as they type.
+ * Configures the official bot activity and previews the text the bot can publish.
  */
 @Composable
 fun DiscordScreen(
@@ -164,7 +159,7 @@ fun DiscordScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val token by AppSettings.discordToken.collectAsStateWithLifecycle()
+    val botSecret by AppSettings.discordBotSecret.collectAsStateWithLifecycle()
     val username by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val name by AppSettings.discordName.collectAsStateWithLifecycle()
     val avatar by AppSettings.discordAvatar.collectAsStateWithLifecycle()
@@ -178,28 +173,8 @@ fun DiscordScreen(
     val infoDismissed by AppSettings.discordInfoDismissed.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
-    val connected = token.isNotEmpty()
+    val connected = botSecret.isNotEmpty()
     val discordIcon = ImageVector.vectorResource(R.drawable.ic_discord)
-
-    // Refreshes the cached profile whenever the connected account changes. A
-    // failure is left to stand rather than clearing the cache: the usual reason
-    // for one is being offline, and blanking the name every time the phone loses
-    // signal would read as having been signed out.
-    LaunchedEffect(token) {
-        if (token.isEmpty()) {
-            AppSettings.setDiscordAccount("", "", null)
-            return@LaunchedEffect
-        }
-        withContext(Dispatchers.IO) {
-            KizzyRPC.getUserInfo(
-                token,
-                SuperProperties.userAgent,
-                SuperProperties.superPropertiesBase64,
-            ).onSuccess {
-                AppSettings.setDiscordAccount(it.username, it.name, it.avatar)
-            }
-        }
-    }
 
     Column(
         modifier = modifier
@@ -216,9 +191,9 @@ fun DiscordScreen(
 
         DiscordAccountCard(
             connected = connected,
-            name = name,
-            username = username,
-            avatar = avatar,
+            name = "Zotify Music Bot",
+            username = "Official bot connection",
+            avatar = "",
             status = statusOf(status),
             icon = discordIcon,
             onConnect = onOpenLogin,
@@ -226,27 +201,21 @@ fun DiscordScreen(
 
         if (!connected) {
             SettingsGroup(
-                footer = stringResource(R.string.discord_sign_in_footer),
+                footer = "Paste the private bridge secret from your Render service. This is not your Discord account token.",
             ) {
                 SettingsRow(
                     icon = Icons.Rounded.Key,
-                    title = stringResource(R.string.enter_token_instead),
-                    subtitle = stringResource(R.string.enter_token_instead_subtitle),
-                    onClick = { onOpenDialog(DiscordDialog.TOKEN) },
+                    title = "Connect official bot",
+                    subtitle = "Enter the Zotify bot bridge secret",
+                    onClick = { onOpenDialog(DiscordDialog.BOT_SECRET) },
                 )
             }
         }
 
-        AnimatedVisibility(visible = !infoDismissed) {
-            NoticeCard(
-                text = stringResource(R.string.discord_token_warning),
-                onDismiss = { AppSettings.setDiscordInfoDismissed(true) },
-            )
-        }
 
         SettingsGroup(
             header = stringResource(R.string.rich_presence),
-            footer = stringResource(R.string.discord_presence_footer),
+            footer = "Official bot activity. Set the activity name to Spotify for a Spotify-style text label; Discord does not allow bots to publish Spotify user cards, album art, progress bars, or buttons.",
         ) {
             SettingsRow(
                 icon = discordIcon,
@@ -265,44 +234,6 @@ fun DiscordScreen(
                     )
                 },
                 onClick = { AppSettings.setDiscordRpcEnabled(!rpcEnabled) },
-            )
-            RowDivider()
-            SettingsRow(
-                icon = Icons.AutoMirrored.Rounded.Label,
-                title = stringResource(R.string.lead_with_song),
-                subtitle = stringResource(R.string.lead_with_song_subtitle),
-                enabled = connected && rpcEnabled,
-                trailing = {
-                    Switch(
-                        checked = useDetails,
-                        onCheckedChange = AppSettings::setDiscordUseDetails,
-                        enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setDiscordUseDetails(!useDetails) },
-            )
-            RowDivider()
-            SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
-                title = stringResource(R.string.discord_show_audio_quality),
-                subtitle = stringResource(R.string.discord_show_audio_quality_subtitle),
-                enabled = connected && rpcEnabled,
-                trailing = {
-                    Switch(
-                        checked = showAudioQuality,
-                        onCheckedChange = AppSettings::setDiscordShowAudioQuality,
-                        enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setDiscordShowAudioQuality(!showAudioQuality) },
             )
             RowDivider()
             SettingsRow(
@@ -355,17 +286,17 @@ fun DiscordScreen(
         }
 
         SettingsGroup(
-            header = stringResource(R.string.preview),
-            footer = if (song == null) stringResource(R.string.play_to_preview) else null,
+            header = "Bot activity preview",
+            footer = "The bot posts a standard Discord activity, not a personal-account Rich Presence card.",
         ) {
-            RichPresencePreview(
-                song = song,
-                positionMs = positionMs,
-                durationMs = durationMs,
-                heading = activityName.ifEmpty { appName() },
-                verb = kindOf(activityType).localizedVerb(),
-                useDetails = useDetails,
-                audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
+            Text(
+                text = if (song == null) "Play a track to preview the bot activity." else {
+                    val prefix = activityName.ifBlank { appName() }
+                    "${kindOf(activityType).localizedVerb()} $prefix: ${song.title} — ${song.artist}"
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
 
@@ -400,7 +331,7 @@ private fun DiscordAccountCard(
             .padding(horizontal = GROUP_INSET)
             .clip(GroupShape)
             .background(cardColor)
-            .then(if (connected) Modifier else Modifier.clickable(onClick = onConnect))
+            .clickable(onClick = onConnect)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -686,43 +617,21 @@ fun DiscordDialogHost(
     hazeState: HazeState,
     onDismiss: () -> Unit,
 ) {
-    val rejectedToken = stringResource(R.string.discord_token_rejected)
     when (which) {
-        DiscordDialog.TOKEN -> {
-            val scope = rememberCoroutineScope()
-            var input by remember { mutableStateOf("") }
-            var error by remember { mutableStateOf<String?>(null) }
-            var checking by remember { mutableStateOf(false) }
-            DiscordTokenAlert(
+        DiscordDialog.BOT_SECRET -> {
+            val current by AppSettings.discordBotSecret.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
                 hazeState = hazeState,
-                tokenInput = input,
-                onTokenInputChange = { input = it },
-                error = error,
-                loading = checking,
-                // Verified before it is saved, because a token that doesn't work
-                // fails silently later: the presence simply never appears, with
-                // nothing on this screen to say why.
+                title = "Zotify bot bridge secret",
+                message = "Use the ZOTIFY_WEBHOOK_SECRET value configured privately in Render. Never paste your Discord bot token here.",
+                placeholder = "Bridge secret",
+                isPassword = true,
+                value = input,
+                onValueChange = { input = it },
                 onSave = {
-                    checking = true
-                    error = null
-                    scope.launch {
-                        val trimmed = input.trim()
-                        val info = withContext(Dispatchers.IO) {
-                            KizzyRPC.getUserInfo(
-                                trimmed,
-                                SuperProperties.userAgent,
-                                SuperProperties.superPropertiesBase64,
-                            )
-                        }
-                        info.onSuccess {
-                            AppSettings.setDiscordAccount(it.username, it.name, it.avatar)
-                            AppSettings.setDiscordToken(trimmed)
-                            onDismiss()
-                        }.onFailure {
-                            error = rejectedToken
-                            checking = false
-                        }
-                    }
+                    AppSettings.setDiscordBotSecret(input.trim())
+                    onDismiss()
                 },
                 onDismiss = onDismiss,
             )

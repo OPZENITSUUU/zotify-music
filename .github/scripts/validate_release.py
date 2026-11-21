@@ -68,29 +68,34 @@ def previous_tag_version_code(tag: str, repository: Path, gradle_file: str) -> i
             continue
         if semantic < target:
             earlier.append((semantic, candidate))
-    if not earlier:
-        return None
 
-    _, previous_tag = max(earlier)
-    try:
-        previous_source = subprocess.run(
-            ["git", "show", f"{previous_tag}:{gradle_file}"],
-            cwd=repository,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise ValidationError(f"Unable to read Gradle version metadata from previous tag {previous_tag}") from exc
-
-    previous_name, previous_code = extract_gradle_version(previous_source)
-    if previous_name != previous_tag.removeprefix("v"):
-        print(
-            f"Warning: previous tag {previous_tag} has Gradle versionName {previous_name}; "
-            "continuing with versionCode monotonicity validation",
-            file=sys.stderr,
-        )
-    return previous_code
+    # A historical release can have a malformed tag target (for example, a
+    # release created from a feature branch while GitHub defaulted the tag to
+    # the repository's default branch). Ignore that broken tag and recover the
+    # monotonic versionCode baseline from the newest prior tag whose checked-in
+    # Gradle metadata actually matches its tag.
+    for _, previous_tag in sorted(earlier, reverse=True):
+        try:
+            previous_source = subprocess.run(
+                ["git", "show", f"{previous_tag}:{gradle_file}"],
+                cwd=repository,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+            previous_name, previous_code = extract_gradle_version(previous_source)
+        except (OSError, subprocess.CalledProcessError, ValidationError):
+            print(f"Warning: ignoring invalid historical release tag {previous_tag}", file=sys.stderr)
+            continue
+        if previous_name != previous_tag.removeprefix("v"):
+            print(
+                f"Warning: ignoring historical release tag {previous_tag}; "
+                f"its Gradle versionName is {previous_name}",
+                file=sys.stderr,
+            )
+            continue
+        return previous_code
+    return None
 
 
 def validate_release(

@@ -53,6 +53,18 @@ val listenTogetherServer: String = (
         ?: "https://bitchord-listen-together.onrender.com"
     ).trim().trimEnd('/')
 
+/*
+ * The service that checks this app's hardware key attestation and issues addon
+ * tokens. See AddonAuth. Overridable for a staging deployment. A fork that
+ * points this at its own server gains nothing: addons only trust tokens signed
+ * by the official service's key.
+ */
+val addonAuthServer: String = (
+    localProps.getProperty("ADDON_AUTH_SERVER")
+        ?: System.getenv("ADDON_AUTH_SERVER")
+        ?: "https://bitchord-auth.kushagrasingh.in"
+    ).trim().trimEnd('/')
+
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
 val personalAppName = providers.gradleProperty("bitchordAppName").orElse("Zotify Music").get()
@@ -61,6 +73,14 @@ android {
     namespace = "com.music.zotifymusic"
     // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
     compileSdk = 37
+
+    // Automix's models stay in src/main/assets (the desktop build and the
+    // release that hosts them read them from there) but are not packaged: the
+    // app downloads them on first use, see AutomixModels. The rest is AGP's
+    // default pattern, which setting this replaces.
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.onnx"
+    }
 
     defaultConfig {
         applicationId = "com.zotifymusic.player"
@@ -80,6 +100,11 @@ android {
             "String",
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
+        buildConfigField(
+            "String",
+            "ADDON_AUTH_URL",
+            "\"${addonAuthServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
         // Which release assets are this app's: the phone and TV APKs ship in
         // the same GitHub release, told apart by file name. See
@@ -172,6 +197,7 @@ android {
              * `benchmark` build type below before it ships.
              */
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -205,11 +231,21 @@ android {
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
             // The three BouncyCastle jars (bcprov, bcutil, bcpkix) ship one licence between them.
             pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/LICENSE.txt", "META-INF/NOTICE.md")
+            // BouncyCastle data nothing here reads (~1.2 MB): the Picnic
+            // post-quantum signature tables and the certificate-path
+            // reviewer's message bundles. SMBJ, libadb and the watch
+            // installer only use digests, AES/GCM, HKDF and the X.509 builder.
+            excludes += setOf(
+                "org/bouncycastle/pqc/**",
+                "org/bouncycastle/x509/CertPathReviewerMessages*.properties",
+                "org/bouncycastle/pkix/CertPathReviewerMessages*.properties",
+            )
         }
     }
     buildFeatures {
         compose = true
         buildConfig = true
+        prefab = true
     }
     testOptions {
         unitTests {
@@ -264,7 +300,65 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
     }
 }
 
+// The recovered SDK archive has a text AndroidManifest.xml without the package
+// attribute required by current AGP manifest merging. Patch only that metadata at
+// build time; all classes, Prefab headers, and ABI libraries remain byte-for-byte
+// sourced from the supplied AAR.
+val discordSdkOriginalAar = layout.projectDirectory.file("libs/discord_partner_sdk-recovered.aar")
+val discordSdkPatchedManifest = layout.buildDirectory.file("generated/discord-social-sdk/AndroidManifest.xml")
+val prepareDiscordSdkManifest = tasks.register("prepareDiscordSdkManifest") {
+    inputs.file(discordSdkOriginalAar)
+    outputs.file(discordSdkPatchedManifest)
+    doLast {
+        val originalManifest = zipTree(discordSdkOriginalAar)
+            .matching { include("AndroidManifest.xml") }
+            .singleFile
+            .readText()
+        val hasPackage = Regex("""<manifest\b[^>]*\bpackage\s*=""").containsMatchIn(originalManifest)
+        val patchedManifest = if (hasPackage) originalManifest else {
+            originalManifest.replaceFirst(Regex("<manifest\\b"), "<manifest package=\"com.discord.socialsdk\"")
+        }
+        if (patchedManifest == originalManifest && !hasPackage) {
+            throw GradleException("Could not add the package attribute to the Discord SDK manifest")
+        }
+        discordSdkPatchedManifest.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(patchedManifest)
+        }
+    }
+}
+val patchedDiscordSdkAar = tasks.register<org.gradle.api.tasks.bundling.Zip>("patchDiscordSocialSdkAar") {
+    dependsOn(prepareDiscordSdkManifest)
+    from(zipTree(discordSdkOriginalAar)) {
+        exclude("AndroidManifest.xml")
+        exclude("prefab/modules/discord_partner_sdk/libs/android.arm64-v8a/discord_partner_sdk.so")
+        exclude("prefab/modules/discord_partner_sdk/libs/android.armeabi-v7a/discord_partner_sdk.so")
+        exclude("prefab/modules/discord_partner_sdk/libs/android.x86_64/discord_partner_sdk.so")
+    }
+    from(discordSdkPatchedManifest) {
+        rename { "AndroidManifest.xml" }
+    }
+    // Prefab metadata points at these files, while the recovered archive keeps
+    // the intact binaries in the standard AAR jni/ directories. Restore the
+    // expected module paths so CMake can link the imported target.
+    from(zipTree(discordSdkOriginalAar)) {
+        include("jni/**/libdiscord_partner_sdk.so")
+        eachFile {
+            val abi = path.substringAfter("jni/").substringBefore("/")
+            path = "prefab/modules/discord_partner_sdk/libs/android.$abi/discord_partner_sdk.so"
+        }
+        includeEmptyDirs = false
+    }
+    archiveFileName.set("discord_partner_sdk.aar")
+    destinationDirectory.set(layout.buildDirectory.dir("intermediates/discord-social-sdk"))
+}
+
 dependencies {
+    // Official Discord Social SDK (Android RPC transport; no user-token login).
+    implementation(
+        files(patchedDiscordSdkAar.map { it.archiveFile.get().asFile })
+            .builtBy(patchedDiscordSdkAar)
+    )
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
     // Persistent, battery-aware background checks for verified app updates.
@@ -290,6 +384,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // ProcessLifecycleOwner: whether the app is on screen, for the open-app count.
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
+    // The scheduled check behind "Keep playlists updated"; see PlaylistSync.
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -299,6 +395,9 @@ dependencies {
     implementation("androidx.media3:media3-session:1.11.0")
     implementation("androidx.media3:media3-common:1.11.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
+    // The lyrics share's video: a canvas clip, blurred, with the card laid over it.
+    implementation("androidx.media3:media3-transformer:1.11.0")
+    implementation("androidx.media3:media3-effect:1.11.0")
     // Audio is progressive, but Apple serves its motion artwork as HLS — this
     // is what lets the animated sleeve play it. See CanvasArtworkPlayer.
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
@@ -327,6 +426,13 @@ dependencies {
     // Title logos are PNG, but artist signatures are usually SVG — without
     // this Coil can't decode them (see ArtistSignatureRepository).
     implementation("io.coil-kt.coil3:coil-svg:3.0.4")
+    // SF Symbols as Compose vectors, for the iOS-style settings and menus (as Convx uses).
+    // Without its own dependencies: it asks for Compose 1.12, which needs a newer Android
+    // Gradle plugin than this build, and the plain ImageVectors used here need nothing
+    // the app's own Compose doesn't already have.
+    implementation("com.github.cosmictaserdev-creator.Jetpack_SF_Symbols:sfsymbols-android:1.1.1") {
+        isTransitive = false
+    }
     implementation("androidx.palette:palette-ktx:1.0.0")
 
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
@@ -395,10 +501,12 @@ dependencies {
     implementation("com.hierynomus:smbj:0.15.0")
 
     // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
-    // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
-    // files, which would put an offline conversion step between the model and
-    // the app for a saving that does not matter in a self-distributed APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+    // onnxruntime-android 1.28.0 with libonnxruntime.so rebuilt from the same
+    // tag holding only the operators Automix's two models use: ~25 MB less per
+    // ABI than the published AAR, which carries every operator plus the WebGPU,
+    // NNAPI and XNNPACK providers. Its Java API and JNI library are the official
+    // ones. Rebuilt by native/onnxruntime/build.sh; rerun it when a model changes.
+    implementation(files("libs/onnxruntime-android-1.28.0-automix.aar"))
 
     // ---- Casting: Google Cast sender + the route discovery it sits on ----
     // The framework and the router only. media3-cast is left out on purpose:
@@ -412,6 +520,12 @@ dependencies {
     // See com.music.zotifymusic.wear.WearBridge. Rides on the Play services base
     // the Cast framework already brings, so it adds very little.
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
+
+    // ---- Google Drive backup: the device's own Google sign-in ----
+    // See com.music.bitchord.data.backup.DriveAuth. Only the authorization
+    // client: Drive itself is three REST calls over OkHttp, which is far
+    // lighter than the google-api-services-drive client and its HTTP stack.
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
     // Opens the watch app after an update, so its install prompt is on screen.
     implementation("androidx.wear:wear-remote-interactions:1.1.0")
 

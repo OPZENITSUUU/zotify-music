@@ -36,6 +36,7 @@ import org.schabi.newpipe.extractor.exceptions.YoutubeMusicPremiumContentExcepti
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
+import org.schabi.newpipe.extractor.stream.StreamType
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -61,6 +62,20 @@ object StreamResolver {
     @Volatile
     var maxKbps: () -> Int = { Int.MAX_VALUE }
 
+    /**
+     * Whether the listener says their account has YouTube Premium and wants
+     * its higher Opus rung — see [InnerTubeXResolver.extract]'s `premium`.
+     */
+    @Volatile
+    var premiumAudio: () -> Boolean = { false }
+
+    /**
+     * Drops the remembered stream URLs, so the next play of a track resolves
+     * afresh — for a setting that changes which stream a resolve picks.
+     */
+    fun forgetResolved() {
+        recent.clear()
+    }
 
     private const val TAG = "BitChord"
 
@@ -373,6 +388,7 @@ object StreamResolver {
     fun onSessionChanged() {
         InnerTubeXResolver.onSessionChanged()
         unplayable.clear()
+        UploadedTracks.clear()
     }
 
     private const val UNPLAYABLE_TTL_MS = 10 * 60 * 1000L
@@ -438,7 +454,14 @@ object StreamResolver {
     private suspend fun resolveUncached(videoId: String): Stream {
         val resolveStart = MonotonicClock.nowMs()
         val stream = try {
-            timed("$videoId InnerTubeX") { innerTubeXStream(videoId) }
+            timed("$videoId InnerTubeX") { innerTubeXStreamAllowingUploads(videoId) }
+                ?.let { found ->
+                    // A live broadcast's adaptive URL is one window of a stream
+                    // that keeps growing: it plays the few seconds that exist
+                    // and then ends. Live is played from its HLS playlist.
+                    if (!isLiveUrl(found.url)) found
+                    else timed("$videoId live HLS") { liveHlsStream(videoId) } ?: found
+                }
                 ?: run {
                     TrackLog.w(TAG, "InnerTubeX found no usable stream for $videoId; falling back to extraction")
                     timed("$videoId newPipeStream") { newPipeStream(videoId, ::pickForQuality) }
@@ -502,11 +525,14 @@ object StreamResolver {
         videoId: String,
         maxKbps: Int = maxKbps(),
         requireM4a: Boolean = false,
+        uploaded: Boolean = false,
+        escalateToUpload: Boolean = true,
+        playRefusedUpload: Boolean = false,
     ): Stream? {
         val skip = mutableSetOf<String>()
-        repeat(INNERTUBEX_ATTEMPTS) {
+        repeat(INNERTUBEX_ATTEMPTS) { attempt ->
             val found = try {
-                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a)
+                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a, uploaded, premiumAudio())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -519,9 +545,67 @@ object StreamResolver {
                 return Stream(found.url, found.kbps, found.mimeType, found.loudnessDb)
             }
             TrackLog.w(TAG, "InnerTubeX ${found.profileId} minted an unusable URL for $videoId: $verdict")
+
+            if (playRefusedUpload && uploaded && verdict == Probe.REFUSED) {
+                TrackLog.w(TAG, "playing $videoId's upload stream despite the probe: it is the only copy")
+                return Stream(found.url, found.kbps, found.mimeType, found.loudnessDb)
+            }
             skip += found.profileId
+
+            if (escalateToUpload && attempt == 0 && !uploaded &&
+                verdict == Probe.REFUSED && !Innertube.cookie.isNullOrBlank()
+            ) {
+                askAsUpload(videoId, maxKbps, requireM4a)?.let { return it }
+            }
         }
         return null
+    }
+
+    /** One ask for [videoId] as the user's own upload; a hit is remembered in [UploadedTracks]. */
+    private suspend fun askAsUpload(videoId: String, maxKbps: Int, requireM4a: Boolean): Stream? {
+        TrackLog.d(TAG, "first stream for $videoId was refused; asking as an upload")
+        val found = try {
+            InnerTubeXResolver.extract(videoId, maxKbps, emptySet(), requireM4a, uploaded = true, premium = premiumAudio())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            TrackLog.w(TAG, "asking for $videoId as an upload failed: ${e.javaClass.simpleName}: ${e.message}")
+            return null
+        }
+        if (found == null) {
+            TrackLog.w(TAG, "no stream for $videoId when asked as an upload")
+            return null
+        }
+        val verdict = timed("$videoId InnerTubeX ${found.profileId} upload probe") { probe(found.url) }
+        if (verdict != Probe.OK) {
+            TrackLog.w(TAG, "InnerTubeX ${found.profileId} as an upload for $videoId: $verdict")
+            return null
+        }
+        TrackLog.d(TAG, "resolved $videoId as an upload via InnerTubeX ${found.profileId} @ ${found.kbps}kbps")
+        UploadedTracks.mark(videoId)
+        return Stream(found.url, found.kbps, found.mimeType, found.loudnessDb)
+    }
+
+    /**
+     * [innerTubeXStream], asked as an upload from the start when the track is
+     * known to be one. An unknown one is escalated by [innerTubeXStream]
+     * itself when its first stream is refused while signed in — asking again
+     * here would put up to [INNERTUBEX_ATTEMPTS] more extractions in front of
+     * every signed-in failure before the extraction fallback gets a turn.
+     */
+    private suspend fun innerTubeXStreamAllowingUploads(
+        videoId: String,
+        maxKbps: Int = maxKbps(),
+        requireM4a: Boolean = false,
+    ): Stream? {
+        val known = UploadedTracks.contains(videoId)
+        if (known) {
+            innerTubeXStream(videoId, maxKbps, requireM4a, uploaded = true, playRefusedUpload = true)
+                ?.let { return it }
+            TrackLog.w(TAG, "$videoId is marked as an upload but did not resolve as one; trying an ordinary ask")
+            return innerTubeXStream(videoId, maxKbps, requireM4a, uploaded = false, escalateToUpload = false)
+        }
+        return innerTubeXStream(videoId, maxKbps, requireM4a)
     }
 
     /** The headers a media fetch for [url] must carry to match whoever minted it. */
@@ -647,7 +731,7 @@ object StreamResolver {
             // has no ceiling of its own. Within the setting's ceiling it is the
             // answer; above it (best Opus over Standard's 128kbps) extraction
             // below can pick the lower rung, and this is kept as the fallback.
-            val found = innerTubeXStream(videoId, maxKbps, requireM4a)
+            val found = innerTubeXStreamAllowingUploads(videoId, maxKbps, requireM4a)
                 ?.takeIf { if (requireM4a) it.downloadExtension == "m4a" else it.downloadExtension == "webm" }
             if (found != null) {
                 offered = true
@@ -735,6 +819,14 @@ object StreamResolver {
      */
     suspend fun signatureTimestamp(videoId: String): Int? {
         cachedSignatureTimestamp?.let { return it }
+        // NewPipe fetches the player script through the downloader [init]
+        // installs. Every other caller has already been through [resolve] or
+        // [downloadStream] by the time it gets here, which hid that this one
+        // never touched it. With Direct Source Stream a track plays from an
+        // addon and YouTube is never resolved at all, so the parse failed
+        // with no downloader, the tracker never got a timestamp, and no play
+        // reached the account's history.
+        init
         return runCatching {
             jsPlayerManager { YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId) }
         }
@@ -784,18 +876,29 @@ object StreamResolver {
     private fun probe(url: String): Probe {
         val length = url.toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()
         val start = if (length != null && length > AUTH_BOUNDARY_BYTES + PROBE_READ_BYTES) AUTH_BOUNDARY_BYTES else 0L
-        val end = minOf(start + PlayerClient.rangeBytesFor(url), length ?: Long.MAX_VALUE) - 1
+        // A host with no range cap of its own reports Long.MAX_VALUE, which
+        // must not be added to [start]: that overflowed into a negative end
+        // and a 416 read as a refusal. Its real fetch asks for the rest of
+        // the file, so the probe does too.
+        val window = PlayerClient.rangeBytesFor(url)
+        val range = when {
+            window != Long.MAX_VALUE -> "bytes=$start-${minOf(start + window, length ?: Long.MAX_VALUE) - 1}"
+            length != null -> "bytes=$start-${length - 1}"
+            else -> "bytes=$start-"
+        }
         val builder = okhttp3.Request.Builder().url(url)
-            .header("Range", "bytes=$start-$end")
-        mediaHeadersFor(url).forEach { (name, value) -> builder.header(name, value) }
+            .header("Range", range)
+        val sentHeaders = mediaHeadersFor(url)
+        sentHeaders.forEach { (name, value) -> builder.header(name, value) }
         return try {
             prober.newCall(builder.build()).execute().use { response ->
-                when {
+                val contentType = response.header("Content-Type")
+                val verdict = when {
                     response.code in REFUSAL_CODES -> Probe.REFUSED
                     response.code !in 200..299 && response.code != 416 -> Probe.UNREACHABLE
                     // A refusal dressed as a success: an error page, or the
                     // consent/captcha interstitial, rather than audio.
-                    response.header("Content-Type")?.startsWith("audio/") != true -> Probe.REFUSED
+                    contentType?.startsWith("audio/") != true -> Probe.REFUSED
                     // Headers can arrive long before a body that never does —
                     // exactly the shaping this whole path exists to sidestep.
                     // Insisting on the bytes is the point: a trickle that
@@ -803,6 +906,15 @@ object StreamResolver {
                     response.body?.source()?.request(PROBE_READ_BYTES) != true -> Probe.UNREACHABLE
                     else -> Probe.OK
                 }
+                if (verdict != Probe.OK) {
+                    TrackLog.w(
+                        TAG,
+                        "probe $verdict: HTTP ${response.code} type=$contentType " +
+                            "range=$range ${describeMediaUrl(url)} " +
+                            "sent=${sentHeaders.keys.sorted()}",
+                    )
+                }
+                verdict
             }
         } catch (e: Exception) {
             TrackLog.w(TAG, "probe failed: ${e.message}")
@@ -811,6 +923,15 @@ object StreamResolver {
     }
 
     private val REFUSAL_CODES = setOf(403, 404, 410)
+
+    /** A stream URL reduced to what describes it and nothing that could be replayed. */
+    private fun describeMediaUrl(url: String): String {
+        val parsed = url.toHttpUrlOrNull() ?: return "url=unparseable"
+        return "host=${parsed.host} path=${parsed.encodedPath} " +
+            "c=${parsed.queryParameter("c")} itag=${parsed.queryParameter("itag")} " +
+            "mime=${parsed.queryParameter("mime")} clen=${parsed.queryParameter("clen")} " +
+            "pot=${parsed.queryParameter("pot") != null}"
+    }
 
     /**
      * The probe's own client: the app's, but on a short leash.
@@ -938,6 +1059,43 @@ object StreamResolver {
             }
         }
         throw failure ?: IllegalStateException("Track unavailable: no audio streams")
+    }
+
+    /**
+     * Whether [url] is a window onto a live broadcast. googlevideo marks those
+     * with `live=1` and `source=yt_live_broadcast`; a finished video has neither.
+     */
+    fun isLiveUrl(url: String): Boolean {
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        return parsed.queryParameter("live") == "1" ||
+            parsed.queryParameter("source") == "yt_live_broadcast"
+    }
+
+    /**
+     * The HLS playlist of a live broadcast, or null when [videoId] is not live
+     * or has none. Media3 plays it through `HlsMediaSource` — the `.m3u8` ending
+     * is what [com.music.bitchord.playback.StreamContainer.manifestMimeOf] reads.
+     */
+    private suspend fun liveHlsStream(videoId: String): Stream? = try {
+        extractionGate.withLock {
+            withContext(Dispatchers.IO) {
+                val extractor = ServiceList.YouTube.getStreamExtractor(
+                    "https://www.youtube.com/watch?v=$videoId",
+                )
+                extractor.fetchPage()
+                val live = extractor.streamType == StreamType.LIVE_STREAM ||
+                    extractor.streamType == StreamType.AUDIO_LIVE_STREAM
+                extractor.hlsUrl.takeIf { live && it.isNotBlank() }?.let {
+                    TrackLog.d(TAG, "live stream $videoId served from its HLS playlist")
+                    Stream(url = it, kbps = 0, mimeType = "application/x-mpegURL")
+                }
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        TrackLog.w(TAG, "live HLS lookup failed for $videoId: ${e.message}")
+        null
     }
 
     /**

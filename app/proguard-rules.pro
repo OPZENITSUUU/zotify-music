@@ -9,6 +9,23 @@
 -dontobfuscate
 -keepattributes SourceFile,LineNumberTable,Signature,InnerClasses,EnclosingMethod,Exceptions,*Annotation*
 
+# ---- Logging ------------------------------------------------------------------
+# A release build writes nothing to logcat. Every call is removed, ours and every
+# library's that goes through android.util.Log — Media3's included — and with it
+# the string each one built, on threads like playback's and the analyzer's that
+# log several times a second. Nobody reads logcat on a user's phone: what a bug
+# report needs is Copy Log in the player, which reads TrackLog's own buffer and
+# never touched logcat to begin with (see TrackLog's class doc).
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+    public static int w(...);
+    public static int e(...);
+    public static int wtf(...);
+    public static int println(...);
+}
+
 # ---- Script engines and extractors ------------------------------------------
 # Rhino compiles and runs YouTube's player JavaScript and binds Java classes into
 # it reflectively; NewPipe and InnerTubeX drive it and parse with nanojson/jsoup.
@@ -22,11 +39,17 @@
 
 # ---- Native and crypto --------------------------------------------------------
 # ONNX Runtime and QuickJS are called from JNI, which R8 cannot see. SMBJ picks
-# its BouncyCastle providers and event bus handlers reflectively.
+# its authenticators and event bus handlers reflectively.
 -keep class ai.onnxruntime.** { *; }
 -keep class com.hierynomus.** { *; }
 -keep class net.engio.mbassy.** { *; }
--keep class org.bouncycastle.** { *; }
+# BouncyCastle needs no keep rule: SMBJ (BCSecurityProvider), libadb (pairing's
+# HKDF/AES-GCM) and WatchInstaller (the X.509 builder) all call it directly, so
+# R8 traces what they use. Its only lookups by name are inside its JCA provider
+# packages, and nothing registers BouncyCastleProvider — the certificate is
+# signed through the platform's own providers. Keep an exact class here if a
+# new use reaches it by name.
+-dontwarn org.bouncycastle.**
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
 # The vendored FFmpeg extension's JNI calls back into this by name to grow
 # its output buffer (native/ffmpeg/ffmpeg_jni.cc, JNI_OnLoad).
