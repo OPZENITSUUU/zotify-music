@@ -98,10 +98,15 @@ class AuthStore(context: Context) {
     val isSignedIn: Boolean
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
-    /** The Discord account's bearer token. See DiscordRPC for why a user token. */
-    var discordToken: String?
-        get() = prefs.getString(KEY_DISCORD_TOKEN, null)
-        set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
+    /** Shared secret for the user's own Zotify bot bridge; never a Discord account token. */
+    var discordBotSecret: String?
+        get() = prefs.getString(KEY_DISCORD_BOT_SECRET, null)
+        set(value) = prefs.edit().putString(KEY_DISCORD_BOT_SECRET, value).apply()
+
+    init {
+        // Remove credentials saved by the retired user-token implementation.
+        prefs.edit().remove(KEY_DISCORD_TOKEN).apply()
+    }
 
     /**
      * A credential that belongs to a setting: a scrobbler session key, the
@@ -245,6 +250,7 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_NAME = "channel_name"
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
+        private const val KEY_DISCORD_BOT_SECRET = "discord_bot_secret"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
         private const val SETTING_PREFIX = "setting."
