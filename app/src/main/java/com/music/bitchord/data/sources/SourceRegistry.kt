@@ -702,55 +702,15 @@ object SourceRegistry {
         "default-addon-qobuz-dl-v1",
         "default-addon-nullbeat-v1",
         "default-addon-nebula-v1",
+        "default-addon-bluebit-v1",
+        "default-addon-mono-v1",
+        "default-addon-rukia-v1",
+        "default-addon-lastwave-v1",
     )
 
-    private val DEFAULT_ADDONS = listOf(
-        SourceConfig(
-            id = "default-addon-bluebit-v1",
-            kind = SourceKind.ADDON,
-            label = "BlueBit Station",
-            baseUrl = "https://bluebit.jucepe0929.workers.dev",
-            enabled = false,
-            networkAccessAuthorized = false,
-            allowDownloads = false,
-        ),
-        SourceConfig(
-            id = "default-addon-mono-v1",
-            kind = SourceKind.ADDON,
-            label = "Eljohnzc Mono",
-            baseUrl = "https://eljohnzc-mono.de.deplexo.com",
-            enabled = false,
-            networkAccessAuthorized = false,
-            allowDownloads = false,
-        ),
-    )
-
-    /**
-     * Add-ons retained in the requested default configuration. The known-broken
-     * NullBeat and Nebula endpoints are retired by stable seed ID above, which
-     * removes them from existing installs as well as fresh installs. Downloads
-     * remain off until an add-on manifest is read and its policy recorded.
-     */
-    private val REQUESTED_DEFAULT_ADDONS = listOf(
-        SourceConfig(
-            id = "default-addon-rukia-v1",
-            kind = SourceKind.ADDON,
-            label = "Rukia Addon",
-            baseUrl = "https://rukia-addon-vercel-preview.vercel.app",
-            enabled = true,
-            networkAccessAuthorized = true,
-            allowDownloads = false,
-        ),
-        SourceConfig(
-            id = "default-addon-lastwave-v1",
-            kind = SourceKind.ADDON,
-            label = "LastWave",
-            baseUrl = "https://lastwaveaddons.clashprojects.qd.je/a/91c45779011d4303e9d97077830f7ab9419773cd2fd65cf7bb0c502009aecd8b",
-            enabled = true,
-            networkAccessAuthorized = true,
-            allowDownloads = false,
-        ),
-    )
+    // No provider endpoints are preloaded. Users add and authorize their own addons.
+    private val DEFAULT_ADDONS = emptyList<SourceConfig>()
+    private val REQUESTED_DEFAULT_ADDONS = emptyList<SourceConfig>()
 
     private const val KEY_SOURCES = "sources"
     private const val KEY_DEFAULT_ADDONS_SEEDED_V1 = "default_addons_seeded_v1"
