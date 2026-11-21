@@ -200,6 +200,10 @@ jobs:
             echo "::error::Zotify Music exited during startup."
             adb logcat -d -t 1500
             exit 1
+        env:
+          # The GitHub-hosted runner disables KVM acceleration for this action.
+          # Explicitly opt into the emulator's TCG software CPU backend.
+          ANDROID_I_WANT_MY_TCG: "yes"
 
       - name: Verify package, version, alignment, and signature
         shell: bash
