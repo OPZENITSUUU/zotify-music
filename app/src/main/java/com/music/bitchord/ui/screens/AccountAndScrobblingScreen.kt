@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.icons.SfIcons
 import com.music.bitchord.auth.clearSpotifyWebSession
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
@@ -13,16 +14,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,10 +62,11 @@ fun AccountAndScrobblingScreen(
     val listenBrainzEnabled by AppSettings.listenBrainzEnabled.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     val listenBrainzPrimaryArtistOnly by AppSettings.listenBrainzPrimaryArtistOnly.collectAsStateWithLifecycle()
-    val discordToken by AppSettings.discordToken.collectAsStateWithLifecycle()
+    val discordBotSecret by AppSettings.discordBotSecret.collectAsStateWithLifecycle()
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val youtubePremiumAudio by AppSettings.youtubePremiumAudio.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -75,12 +74,7 @@ fun AccountAndScrobblingScreen(
             .verticalScroll(rememberScrollState())
             .padding(contentPadding),
     ) {
-        Text(
-            text = stringResource(R.string.account_integrations),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
-        )
+        SettingsPageTitle(stringResource(R.string.account_integrations))
 
         // One card: who is signed in, which profile is listening, and the way
         // out, with the explanation of profiles underneath.
@@ -98,10 +92,25 @@ fun AccountAndScrobblingScreen(
             if (signedIn) {
                 FullWidthDivider()
                 SettingsRow(
-                    icon = Icons.Rounded.SwitchAccount,
+                    icon = SfIcons.SwitchAccount,
                     title = stringResource(R.string.listen_as),
                     subtitle = channelName ?: stringResource(R.string.default_youtube_profile),
                     onClick = onSwitchChannel,
+                )
+                // With the account because it is a claim about the account: only a
+                // signed-in Premium session is offered the higher Opus rung.
+                RowDivider()
+                SettingsRow(
+                    icon = SfIcons.AutoAwesome,
+                    title = stringResource(R.string.youtube_premium_audio),
+                    subtitle = stringResource(R.string.youtube_premium_audio_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = youtubePremiumAudio,
+                            onCheckedChange = AppSettings::setYoutubePremiumAudio,
+                        )
+                    },
+                    onClick = { AppSettings.setYoutubePremiumAudio(!youtubePremiumAudio) },
                 )
                 FullWidthDivider()
                 DestructiveRow(label = stringResource(R.string.sign_out), onClick = onSignOut)
@@ -140,9 +149,9 @@ fun AccountAndScrobblingScreen(
                 icon = ImageVector.vectorResource(R.drawable.ic_discord),
                 title = "Discord",
                 subtitle = when {
-                    discordToken.isEmpty() -> stringResource(R.string.tap_to_connect)
+                    discordBotSecret.isEmpty() -> stringResource(R.string.tap_to_connect)
                     !discordRpcEnabled -> stringResource(R.string.connected_presence_off)
-                    discordUsername.isNotEmpty() -> stringResource(R.string.sharing_as, discordUsername)
+                    discordBotSecret.isNotEmpty() -> "Connected to Zotify Music bot"
                     else -> stringResource(R.string.sharing_listens)
                 },
                 onClick = onOpenDiscord,
@@ -155,7 +164,7 @@ fun AccountAndScrobblingScreen(
                 footer = stringResource(R.string.scrobbling_footer),
             ) {
                 SettingsRow(
-                    icon = Icons.Rounded.Cloud,
+                    icon = SfIcons.Cloud,
                     title = "ListenBrainz",
                     subtitle = if (listenBrainzEnabled && listenBrainzToken.isNotBlank()) {
                         stringResource(R.string.connected)
@@ -163,7 +172,7 @@ fun AccountAndScrobblingScreen(
                         stringResource(R.string.enter_token_to_enable)
                     },
                     trailing = {
-                        Switch(
+                        IosSwitch(
                             checked = listenBrainzEnabled,
                             onCheckedChange = { checked ->
                                 if (checked && listenBrainzToken.isBlank()) {
@@ -172,10 +181,6 @@ fun AccountAndScrobblingScreen(
                                     AppSettings.setListenBrainzEnabled(checked)
                                 }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
                         )
                     },
                     onClick = onOpenListenBrainzLogin,
@@ -183,17 +188,13 @@ fun AccountAndScrobblingScreen(
                 if (listenBrainzEnabled && listenBrainzToken.isNotBlank()) {
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.Rounded.GraphicEq,
+                        icon = SfIcons.GraphicEq,
                         title = stringResource(R.string.scrobble_primary_artist_only),
                         subtitle = stringResource(R.string.scrobble_primary_artist_only_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = listenBrainzPrimaryArtistOnly,
                                 onCheckedChange = AppSettings::setListenBrainzPrimaryArtistOnly,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setListenBrainzPrimaryArtistOnly(!listenBrainzPrimaryArtistOnly) },
@@ -201,7 +202,7 @@ fun AccountAndScrobblingScreen(
                 }
                 RowDivider()
                 SettingsRow(
-                    icon = Icons.Rounded.History,
+                    icon = SfIcons.History,
                     title = "Last.fm",
                     subtitle = if (lastfmSessionKey.isNotBlank()) {
                         stringResource(R.string.signed_in_as, lastfmUsername)
@@ -209,7 +210,7 @@ fun AccountAndScrobblingScreen(
                         stringResource(R.string.tap_to_sign_in)
                     },
                     trailing = {
-                        Switch(
+                        IosSwitch(
                             checked = lastfmEnabled,
                             onCheckedChange = { checked ->
                                 if (checked && lastfmSessionKey.isBlank()) {
@@ -218,10 +219,6 @@ fun AccountAndScrobblingScreen(
                                     AppSettings.setLastfmEnabled(checked)
                                 }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
                         )
                     },
                     onClick = {
@@ -239,51 +236,39 @@ fun AccountAndScrobblingScreen(
                 if (lastfmEnabled && lastfmSessionKey.isNotBlank()) {
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.Rounded.GraphicEq,
+                        icon = SfIcons.GraphicEq,
                         title = stringResource(R.string.scrobble_tracks),
                         subtitle = stringResource(R.string.scrobble_tracks_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = lastfmScrobbleEnabled,
                                 onCheckedChange = AppSettings::setLastfmScrobbleEnabled,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setLastfmScrobbleEnabled(!lastfmScrobbleEnabled) },
                     )
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.Rounded.GraphicEq,
+                        icon = SfIcons.GraphicEq,
                         title = stringResource(R.string.scrobble_primary_artist_only),
                         subtitle = stringResource(R.string.scrobble_primary_artist_only_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = lastfmPrimaryArtistOnly,
                                 onCheckedChange = AppSettings::setLastfmPrimaryArtistOnly,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setLastfmPrimaryArtistOnly(!lastfmPrimaryArtistOnly) },
                     )
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.Rounded.GraphicEq,
+                        icon = SfIcons.GraphicEq,
                         title = stringResource(R.string.now_playing),
                         subtitle = stringResource(R.string.lastfm_now_playing_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = lastfmNowPlayingEnabled,
                                 onCheckedChange = AppSettings::setLastfmNowPlaying,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setLastfmNowPlaying(!lastfmNowPlayingEnabled) },
@@ -294,7 +279,7 @@ fun AccountAndScrobblingScreen(
             if (lastfmEnabled && lastfmSessionKey.isNotBlank()) {
                 SettingsGroup(header = stringResource(R.string.scrobble_timing)) {
                     SliderRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = SfIcons.Tune,
                         title = stringResource(R.string.min_song_duration),
                         subtitle = stringResource(R.string.min_song_duration_subtitle),
                         value = "${scrobbleMinDuration}s",
@@ -305,7 +290,7 @@ fun AccountAndScrobblingScreen(
                     )
                     RowDivider()
                     SliderRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = SfIcons.Tune,
                         title = stringResource(R.string.scrobble_delay),
                         subtitle = stringResource(R.string.scrobble_delay_subtitle),
                         value = "${(scrobbleDelayPercent * 100).roundToInt()}%",
@@ -316,7 +301,7 @@ fun AccountAndScrobblingScreen(
                     )
                     RowDivider()
                     SliderRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = SfIcons.Tune,
                         title = stringResource(R.string.max_delay),
                         subtitle = stringResource(R.string.max_delay_subtitle),
                         value = "${scrobbleDelaySeconds}s",
@@ -336,14 +321,14 @@ fun AccountAndScrobblingScreen(
                 footer = stringResource(R.string.scrobbling_paused_footer),
             ) {
                 SettingsRow(
-                    icon = Icons.Rounded.Cloud,
+                    icon = SfIcons.Cloud,
                     title = "ListenBrainz",
                     subtitle = stringResource(R.string.back_in_future_version),
                     enabled = false,
                 )
                 RowDivider()
                 SettingsRow(
-                    icon = Icons.Rounded.History,
+                    icon = SfIcons.History,
                     title = "Last.fm",
                     subtitle = stringResource(R.string.back_in_future_version),
                     enabled = false,

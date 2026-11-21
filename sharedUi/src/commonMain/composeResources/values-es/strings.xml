@@ -189,8 +189,6 @@
     <string name="sign_in">Iniciar sesión</string>
     <string name="sign_in_youtube_music">Iniciar sesión en YouTube Music</string>
     <string name="subscriptions">Suscripciones</string>
-    <string name="switch_to_grid_view">Cambiar a vista de cuadrícula</string>
-    <string name="switch_to_list_view">Cambiar a vista de lista</string>
     <string name="your_replay">Tu Replay</string>
     <string name="your_listening_experience">Tu experiencia musical</string>
     <string name="default_replay_holder">Oyente de BitChord</string>
@@ -200,4 +198,15 @@
     <string name="search_library_empty">Busca las canciones de tu carpeta de Música local.</string>
     <string name="search_library_hint">Canciones, artistas y álbumes</string>
     <string name="search_library_no_results">Nada en Música local coincide con “%1$s”.</string>
+    <string name="add_to_queue">Agregar a la cola</string>
+    <string name="queue_selected_count">Seleccionadas: %1$d</string>
+    <string name="queue_select_all">Seleccionar todo</string>
+    <string name="queue_select">Seleccionar</string>
+    <string name="queue_close_selection">Salir de la selección</string>
+    <string name="queue_add_to_playlist">Playlist</string>
+    <string name="queue_download">Descargar</string>
+    <string name="queue_selection_remove">Quitar</string>
+    <string name="queue_add_all_to_playlist">Añadir todas a la lista</string>
+    <string name="mixes_yours">Tus mixes</string>
+    <string name="mixes_none">Aún no hay mixes. Sigue escuchando y YouTube Music creará algunos para ti.</string>
 </resources>

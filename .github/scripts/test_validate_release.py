@@ -57,18 +57,26 @@ class ReleaseValidatorTest(unittest.TestCase):
         with self.assertRaisesRegex(ValidationError, "already exists"):
             validate_release("v1.0.11", gradle_source(), release_already_exists=True)
 
-    def test_reads_code_from_most_recent_prior_git_tag(self) -> None:
+    def test_reads_code_from_most_recent_valid_prior_git_tag(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             subprocess.run(["git", "init", "-q"], cwd=root, check=True)
             subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=root, check=True)
             subprocess.run(["git", "config", "user.name", "Release Test"], cwd=root, check=True)
             gradle = root / "build.gradle.kts"
-            gradle.write_text(gradle_source(name="1.0.10", code=41), encoding="utf-8")
+
+            gradle.write_text(gradle_source(name="1.0.6", code=6), encoding="utf-8")
             subprocess.run(["git", "add", "build.gradle.kts"], cwd=root, check=True)
-            subprocess.run(["git", "commit", "-qm", "tag fixture"], cwd=root, check=True)
-            subprocess.run(["git", "tag", "v1.0.10"], cwd=root, check=True)
-            self.assertEqual(41, previous_tag_version_code("v1.0.11", root, "build.gradle.kts"))
+            subprocess.run(["git", "commit", "-qm", "valid prior release"], cwd=root, check=True)
+            subprocess.run(["git", "tag", "v1.0.6"], cwd=root, check=True)
+
+            # Simulate a published tag accidentally pointing at the old Gradle version.
+            gradle.write_text(gradle_source(name="1.0.6", code=6), encoding="utf-8")
+            subprocess.run(["git", "add", "build.gradle.kts"], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "bad tag target"], cwd=root, check=True)
+            subprocess.run(["git", "tag", "v1.0.7"], cwd=root, check=True)
+
+            self.assertEqual(6, previous_tag_version_code("v1.0.8", root, "build.gradle.kts"))
 
 
 if __name__ == "__main__":
