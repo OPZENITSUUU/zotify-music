@@ -250,7 +250,13 @@ object AppUpdateChecker {
             url.encodedPath.startsWith("/OPZENITSUUU/zotify-music/releases/")
     }
 
-    internal fun verifiedApkAsset(release: JsonObject): VerifiedApkAsset? = runCatching {
+    internal fun verifiedApkAsset(
+        release: JsonObject,
+        supportedAbis: List<String> = Build.SUPPORTED_ABIS?.toList().orEmpty(),
+    ): VerifiedApkAsset? = runCatching {
+        val prefix = BuildConfig.UPDATE_APK_PREFIX
+        val universalName = "$prefix.apk"
+        val supportedSplitNames = supportedAbis.map { "$prefix_${it}.apk" }.toSet()
         val apks = release["assets"]?.jsonArray
             ?.mapNotNull { it as? JsonObject }
             ?.mapNotNull { asset ->
@@ -262,20 +268,21 @@ object AppUpdateChecker {
                 val safeGithubAsset = parsedUrl.scheme == "https" &&
                     parsedUrl.host == "github.com" &&
                     parsedUrl.encodedPath.startsWith("/OPZENITSUUU/zotify-music/releases/download/")
-                val isOurApk = name.startsWith(BuildConfig.UPDATE_APK_PREFIX, ignoreCase = true) &&
-                    name.endsWith(".apk", ignoreCase = true) &&
+                val isOurApk = (name == universalName || name in supportedSplitNames) &&
                     asset["state"]?.jsonPrimitive?.contentOrNull == "uploaded"
                 if (safeGithubAsset && isOurApk) {
-                    VerifiedApkAsset(name.substringBeforeLast('.'), url, digest)
+                    VerifiedApkAsset(name, url, digest)
                 } else {
                     null
                 }
             }
             .orEmpty()
-        apks.firstOrNull { '_' !in it.name }
-            ?: Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi ->
-                apks.firstOrNull { it.name.endsWith("_$abi") }
-            }
+
+        // Prefer the exact ABI this phone supports. The universal APK is only a
+        // fallback when the release does not contain a matching split.
+        supportedAbis.firstNotNullOfOrNull { abi ->
+            apks.firstOrNull { it.name == "$prefix_${abi}.apk" }
+        } ?: apks.firstOrNull { it.name == universalName }
     }.getOrNull()
 
     /**
