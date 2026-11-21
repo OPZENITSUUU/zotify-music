@@ -3437,7 +3437,7 @@ private fun BitChordApp(
                                 song = player.song,
                                 positionMs = player.position.positionMs,
                                 durationMs = player.durationMs,
-                                onOpenLogin = { showDiscordLogin = true },
+                                onOpenLogin = { discordDialog = DiscordDialog.BOT_SECRET },
                                 onOpenDialog = { discordDialog = it },
                                 contentPadding = listPadding,
                             )
