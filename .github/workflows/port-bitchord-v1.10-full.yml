@@ -1,0 +1,167 @@
+name: One-time complete BitChord v1.10 source integration
+
+on:
+  push:
+    branches:
+      - integration/bitchord-v1.10
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zotify-bitchord-v1.10-full-port
+  cancel-in-progress: false
+
+jobs:
+  full-source-port:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out Zotify integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Three-way merge upstream v1.10 from the original Zotify fork snapshot
+        shell: bash
+        env:
+          OLD_BASE: edc1e6f36febf71a118e649411d2fc21b70ead45
+          UPSTREAM_MERGE: 21356206de5594ca0bdaf4680ca2db68a2287729
+          ZOTIFY_BASE: 5f7031f006265aa7be2a49ea78585435d5f21e36
+        run: |
+          set -euo pipefail
+          git remote add bitchord https://github.com/kushagrasinghx/BitChord.git
+          git fetch --no-tags bitchord main
+          git remote add oldfork https://github.com/OPZENITSUUU/BitChord.git
+          git fetch --no-tags oldfork main
+          git cat-file -e "${OLD_BASE}^{commit}"
+          git cat-file -e "${UPSTREAM_MERGE}^{commit}"
+
+          # Restore Zotify-owned brand art from its untouched main snapshot.
+          git checkout "$ZOTIFY_BASE" -- Banner.png Logo.png 2>/dev/null || true
+
+          patch_file="$RUNNER_TEMP/bitchord-v1.10-full.patch"
+          git diff --binary --full-index "$OLD_BASE" "$UPSTREAM_MERGE" -- . ':(exclude).github/**' ':(exclude)README.md' ':(exclude)Banner.png' ':(exclude)Logo.png' > "$patch_file"
+          echo "Full source patch bytes: $(wc -c < "$patch_file")"
+
+          set +e
+          git apply --3way --index "$patch_file"
+          apply_status=$?
+          set -e
+
+          mapfile -d '' -t conflicts < <(git diff --name-only --diff-filter=U -z)
+          union_count=0
+          preserve_count=0
+          {
+            echo "## Complete BitChord v1.10 source integration"
+            echo
+            echo "- Source release: [BitChord v1.10](https://github.com/kushagrasinghx/BitChord/releases/tag/v1.10)"
+            echo "- Three-way base: `$OLD_BASE` (Zotify's original BitChord snapshot)"
+            echo "- Upstream source commit: `$UPSTREAM_MERGE`"
+            echo "- Apply exit code: `$apply_status`"
+            echo "- Conflicting paths before resolution: ${#conflicts[@]}"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Merge conflicting Kotlin/Java files with a union strategy so that
+          # independent Zotify and upstream code survives. Build configuration,
+          # binaries, and resource collisions retain Zotify's own version.
+          for path in "${conflicts[@]}"; do
+            case "$path" in
+              *.kt|*.java)
+                if git show ":1:$path" > "$RUNNER_TEMP/base" 2>/dev/null &&
+                   git show ":2:$path" > "$RUNNER_TEMP/ours" 2>/dev/null &&
+                   git show ":3:$path" > "$RUNNER_TEMP/theirs" 2>/dev/null; then
+                  if git merge-file --union --stdout "$RUNNER_TEMP/ours" "$RUNNER_TEMP/base" "$RUNNER_TEMP/theirs" > "$path"; then
+                    git add -- "$path"
+                    union_count=$((union_count + 1))
+                  else
+                    git checkout --ours -- "$path"
+                    git add -- "$path"
+                    preserve_count=$((preserve_count + 1))
+                  fi
+                else
+                  if git ls-tree -e HEAD -- "$path" | grep -q .; then
+                    git checkout --ours -- "$path"
+                    git add -- "$path"
+                  else
+                    git rm -f --ignore-unmatch -- "$path" >/dev/null || true
+                    rm -f -- "$path"
+                  fi
+                  preserve_count=$((preserve_count + 1))
+                fi
+                ;;
+              *)
+                if git ls-tree -e HEAD -- "$path" | grep -q .; then
+                  git checkout --ours -- "$path"
+                  git add -- "$path"
+                else
+                  git rm -f --ignore-unmatch -- "$path" >/dev/null || true
+                  rm -f -- "$path"
+                fi
+                preserve_count=$((preserve_count + 1))
+                ;;
+            esac
+          done
+
+          # Use Zotify's generated Android resources namespace while retaining
+          # the upstream Kotlin package names.
+          while IFS= read -r -d '' file; do
+            sed -i 's/com\.music\.bitchord\.R/com.music.zotifymusic.R/g' "$file"
+          done < <(git grep -Ilz 'com.music.bitchord.R' -- app tv wearos 2>/dev/null || true)
+
+          git add -A
+          git diff --cached --check
+
+          report="BITCHORD_V1_10_PORT_REPORT.md"
+          {
+            echo "# BitChord v1.10 source integration"
+            echo
+            echo "- Upstream release: https://github.com/kushagrasinghx/BitChord/releases/tag/v1.10"
+            echo "- Three-way base: `$OLD_BASE` (Zotify's original BitChord snapshot)"
+            echo "- Upstream source commit: `$UPSTREAM_MERGE`"
+            echo "- Apply exit code: `$apply_status`"
+            echo "- Conflicts union-merged in Kotlin/Java: $union_count"
+            echo "- Conflicts kept from Zotify for non-code/configuration: $preserve_count"
+            echo
+            echo "Zotify's app ID, namespace, product branding, signing configuration, update asset prefix, independent version numbering, and GitHub release pipeline remain owned by Zotify. The upstream source changes were merged from the original fork snapshot using Git's three-way merge; Kotlin/Java conflicts retain both sides for compiler/test validation."
+            echo
+            if (( ${#conflicts[@]} )); then
+              echo "## Paths that needed conflict resolution"
+              for path in "${conflicts[@]}"; do echo "- `$path`"; done
+            fi
+          } > "$report"
+          git add "$report"
+
+          # This is a one-time integration workflow, not part of the app.
+          rm -f .github/workflows/port-bitchord-v1.10-full.yml
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "::error::The full upstream source patch produced no changes."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: integrate full BitChord v1.10 source updates"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          {
+            echo "- Kotlin/Java union-merged paths: $union_count"
+            echo "- Other conflicts preserved from Zotify: $preserve_count"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run JVM and Android unit tests
+        run: ./gradlew --no-daemon --stacktrace --console=plain :shared:jvmTest :sharedUi:jvmTest :app:testProdDebugUnitTest
+
+      - name: Build Zotify phone and Android TV variants
+        run: ./gradlew --no-daemon --stacktrace --console=plain :app:assembleProdDebug :tv:assembleProdDebug
