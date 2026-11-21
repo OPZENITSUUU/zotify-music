@@ -516,7 +516,7 @@
     <string name="lyrics_share_image">Gambar</string>
     <string name="lyrics_share_saving">Menyimpan…</string>
     <string name="lyrics_share_gradient">Gradien</string>
-    <string name="lyrics_share_show_logo">Tampilkan logo BitChord</string>
+    <string name="lyrics_share_show_logo">Tampilkan logo Zotify Music</string>
     <string name="listening_shape">Pola mendengarkan Anda</string>
     <string name="member_since">Anggota sejak</string>
     <string name="member_since_value">Anggota sejak %1$s</string>
@@ -1359,7 +1359,7 @@
     <string name="replay_period_monthly">Bulanan</string>
     <string name="replay_period_yearly">Tahunan</string>
     <string name="replay_period_lifetime">Sepanjang masa</string>
-    <string name="onboarding_title">Jutaan lagu, streaming di BitChord</string>
+    
     <string name="onboarding_name_prompt">Anda ingin dipanggil apa?</string>
     <string name="onboarding_name_hint">Nama Anda</string>
     <string name="onboarding_name_footer">Teman akan melihatnya saat Anda memakai Dengarkan Bersama. Anda bisa mengubahnya nanti di Pengaturan.</string>
@@ -1570,8 +1570,8 @@
     <string name="font_footer">Lama mengembalikan huruf yang lebih tebal dan rapat yang dipakai aplikasi sebelum disamakan dengan Apple Music.</string>
     <string name="bit_perfect_output">Output bit-perfect</string>
     <string name="bit_perfect_bypassed_footer">Output bit-perfect sudah siap, jadi pengaturan yang redup dilewati dan versi Dolby Atmos tidak diminta. Semuanya berfungsi lagi saat DAC dilepas atau mode dimatikan.</string>
-    <string name="bit_perfect_sheet_warning">Mengirim trek ke DAC tanpa perubahan. Equalizer, normalisasi kenyaringan, crossfade, Automix, kecepatan putar, dan volume BitChord dilewati.</string>
-    <string name="bit_perfect_mode_off_subtitle">Audio melewati mixer Android dan efek BitChord.</string>
+    <string name="bit_perfect_sheet_warning">Mengirim trek ke DAC tanpa perubahan. Equalizer, normalisasi kenyaringan, crossfade, Automix, kecepatan putar, dan volume Zotify Music dilewati.</string>
+    <string name="bit_perfect_mode_off_subtitle">Audio melewati mixer Android dan efek Zotify Music.</string>
     <string name="bit_perfect_mode_usb_android">DAC USB</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 membuka DAC pada rate dan kedalaman bit masing-masing trek, tanpa mixing atau resampling.</string>
     <string name="bit_perfect_requires_android_14">Memerlukan Android 14 atau lebih baru</string>
@@ -1579,13 +1579,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">Untuk pemutar musik dengan DAC sendiri. Membuka output headphone atau line secara eksklusif pada rate masing-masing trek. Tidak semua perangkat memberikan mode eksklusif.</string>
     <string name="bit_perfect_requires_android_8_1">Memerlukan Android 8.1 atau lebih baru</string>
     <string name="bit_perfect_mode_usb_direct">DAC USB (driver langsung)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord mengendalikan DAC sendiri, di versi Android apa pun, dan mengatur volumenya di DAC. Meminta izin USB. Bisa jauh lebih keras daripada output normal.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">Zotify Music mengendalikan DAC sendiri, di versi Android apa pun, dan mengatur volumenya di DAC. Meminta izin USB. Bisa jauh lebih keras daripada output normal.</string>
     <string name="dac_volume">Volume DAC</string>
     <string name="dac_volume_subtitle">Diatur di DAC itu sendiri; musik tidak diskalakan</string>
     <string name="usb_allow_fixed_volume">Izinkan DAC tanpa kontrol volume</string>
     <string name="usb_allow_fixed_volume_subtitle">Jika tidak, DAC seperti itu memutar lewat output normal</string>
     <string name="usb_allow_fixed_volume_confirm_title">Putar pada skala penuh?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord tidak bisa mengatur volume DAC jenis ini, jadi DAC memutar pada skala penuh dan hanya kenopnya sendiri, jika ada, yang mengatur kenyaringan. Ini bisa sangat keras dan berbahaya dengan headphone sensitif.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">Zotify Music tidak bisa mengatur volume DAC jenis ini, jadi DAC memutar pada skala penuh dan hanya kenopnya sendiri, jika ada, yang mengatur kenyaringan. Ini bisa sangat keras dan berbahaya dengan headphone sensitif.</string>
     <string name="convert_for_limited_dac">Konversi untuk DAC spesifikasi rendah</string>
     <string name="convert_for_limited_dac_subtitle">Mengonversi trek di atas batas DAC Anda ke format tertingginya. Trek mungkin lebih lama dimulai dan tidak akan bit-perfect terhadap aslinya.</string>
     <string name="bit_perfect_confirm_title">Aktifkan output bit-perfect?</string>
