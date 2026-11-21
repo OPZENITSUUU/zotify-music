@@ -1640,4 +1640,9 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+
+    <!-- Preserved Zotify v1.0.8 strings -->
+    <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
+    <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
+    <string name="advanced_options">Advanced &amp; experimental options</string>
 </resources>
