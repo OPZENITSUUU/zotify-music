@@ -1816,4 +1816,9 @@
     <string name="drive_backup_row_subtitle">在你的所有裝置間備份並同步 Replay</string>
     <string name="drive_over_cellular">使用行動數據同步</string>
     <string name="drive_over_cellular_subtitle">關閉時，自動同步會等待 Wi-Fi</string>
+
+    <!-- Preserved Zotify v1.0.8 strings -->
+    <string name="advanced_options">高階選項</string>
+    <string name="legacy_mesh_gradient">經典網格漸變</string>
+    <string name="legacy_mesh_gradient_subtitle">恢復 v1.5 中播放器背後的流動色塊效果</string>
 </resources>
