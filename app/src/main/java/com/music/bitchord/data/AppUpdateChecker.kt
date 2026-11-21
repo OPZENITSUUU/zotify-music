@@ -256,7 +256,7 @@ object AppUpdateChecker {
     ): VerifiedApkAsset? = runCatching {
         val prefix = BuildConfig.UPDATE_APK_PREFIX
         val universalName = "$prefix.apk"
-        val supportedSplitNames = supportedAbis.map { "$prefix_${it}.apk" }.toSet()
+        val supportedSplitNames = supportedAbis.map { "${prefix}_${it}.apk" }.toSet()
         val apks = release["assets"]?.jsonArray
             ?.mapNotNull { it as? JsonObject }
             ?.mapNotNull { asset ->
@@ -281,7 +281,7 @@ object AppUpdateChecker {
         // Prefer the exact ABI this phone supports. The universal APK is only a
         // fallback when the release does not contain a matching split.
         supportedAbis.firstNotNullOfOrNull { abi ->
-            apks.firstOrNull { it.name == "$prefix_${abi}.apk" }
+            apks.firstOrNull { it.name == "${prefix}_${abi}.apk" }
         } ?: apks.firstOrNull { it.name == universalName }
     }.getOrNull()
 
