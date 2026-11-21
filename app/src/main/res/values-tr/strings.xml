@@ -560,7 +560,7 @@
     <string name="lyrics_share_image">Görsel</string>
     <string name="lyrics_share_saving">Kaydediliyor…</string>
     <string name="lyrics_share_gradient">Gradyan</string>
-    <string name="lyrics_share_show_logo">BitChord logosunu göster</string>
+    <string name="lyrics_share_show_logo">Zotify Music logosunu göster</string>
     <string name="listening_shape">Dinleme örüntün</string>
     <string name="member_since">Üyelik başlangıcı</string>
     <string name="member_since_value">%1$s tarihinden beri üye</string>
@@ -1348,7 +1348,7 @@
     <string name="replay_period_monthly">Aylık</string>
     <string name="replay_period_yearly">Yıllık</string>
     <string name="replay_period_lifetime">Tüm zamanlar</string>
-    <string name="onboarding_title">Milyonlarca şarkı, BitChord’da akışta</string>
+    
     <string name="onboarding_name_prompt">Size nasıl hitap edelim?</string>
     <string name="onboarding_name_hint">Adınız</string>
     <string name="onboarding_name_footer">Birlikte Dinle’yi kullandığınızda arkadaşlarınız bunu görür. Daha sonra Ayarlar’dan değiştirebilirsiniz.</string>
@@ -1550,8 +1550,8 @@
     <string name="font_footer">Eski, uygulamanın Apple Music\'e uyarlanmadan önce kullandığı daha kalın ve sıkı yazı tipini geri getirir.</string>
     <string name="bit_perfect_output">Bit-perfect çıkış</string>
     <string name="bit_perfect_bypassed_footer">Bit-perfect çıkış hazır, bu nedenle soluk ayarlar atlanır ve Dolby Atmos sürümleri istenmez. DAC çıkarıldığında veya mod kapatıldığında yeniden çalışırlar.</string>
-    <string name="bit_perfect_sheet_warning">Parçayı DAC\'a değiştirmeden gönderir. Ekolayzır, ses yüksekliği normalleştirme, çapraz geçiş, Automix, çalma hızı ve BitChord\'un ses düzeyi atlanır.</string>
-    <string name="bit_perfect_mode_off_subtitle">Ses, Android\'in mikseri ve BitChord\'un efektlerinden geçer.</string>
+    <string name="bit_perfect_sheet_warning">Parçayı DAC\'a değiştirmeden gönderir. Ekolayzır, ses yüksekliği normalleştirme, çapraz geçiş, Automix, çalma hızı ve Zotify Music\'un ses düzeyi atlanır.</string>
+    <string name="bit_perfect_mode_off_subtitle">Ses, Android\'in mikseri ve Zotify Music\'un efektlerinden geçer.</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14, DAC\'ı her parçanın kendi hızında ve bit derinliğinde, miksleme veya yeniden örnekleme olmadan açar.</string>
     <string name="bit_perfect_requires_android_14">Android 14 veya üstü gerekir</string>
@@ -1559,13 +1559,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">Kendi DAC\'ı olan müzik çalarlar için. Kulaklık veya hat çıkışını her parçanın kendi hızında özel olarak açar. Her cihaz özel moda izin vermez.</string>
     <string name="bit_perfect_requires_android_8_1">Android 8.1 veya üstü gerekir</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (doğrudan sürücü)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord, DAC\'ı her Android sürümünde kendisi yönetir ve ses düzeyini DAC üzerinde ayarlar. USB izni ister. Normal çıkıştan çok daha yüksek ses verebilir.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">Zotify Music, DAC\'ı her Android sürümünde kendisi yönetir ve ses düzeyini DAC üzerinde ayarlar. USB izni ister. Normal çıkıştan çok daha yüksek ses verebilir.</string>
     <string name="dac_volume">DAC ses düzeyi</string>
     <string name="dac_volume_subtitle">DAC\'ın kendisinde ayarlanır; müzik ölçeklenmez</string>
     <string name="usb_allow_fixed_volume">Ses kontrolü olmayan DAC\'lara izin ver</string>
     <string name="usb_allow_fixed_volume_subtitle">Aksi takdirde böyle bir DAC normal çıkıştan çalar</string>
     <string name="usb_allow_fixed_volume_confirm_title">Tam ölçekte çalınsın mı?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord bu tür bir DAC\'ın ses düzeyini ayarlayamaz, bu yüzden tam ölçekte çalar ve yalnızca varsa DAC\'ın kendi düğmesi ses düzeyini denetler. Hassas kulaklıklarla tehlikeli derecede yüksek olabilir.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">Zotify Music bu tür bir DAC\'ın ses düzeyini ayarlayamaz, bu yüzden tam ölçekte çalar ve yalnızca varsa DAC\'ın kendi düğmesi ses düzeyini denetler. Hassas kulaklıklarla tehlikeli derecede yüksek olabilir.</string>
     <string name="convert_for_limited_dac">Düşük özellikli DAC\'lar için dönüştür</string>
     <string name="convert_for_limited_dac_subtitle">DAC\'ınızın sınırını aşan parçaları en yüksek biçimine dönüştürür. Parçaların başlaması daha uzun sürebilir ve özgün kayda göre bit-perfect olmaz.</string>
     <string name="bit_perfect_confirm_title">Bit-perfect çıkış açılsın mı?</string>
