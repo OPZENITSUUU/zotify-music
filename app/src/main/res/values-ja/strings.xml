@@ -1681,4 +1681,40 @@
     <string name="drive_backup_row_subtitle">Replay をすべてのデバイスでバックアップ・同期</string>
     <string name="drive_over_cellular">モバイルデータで同期</string>
     <string name="drive_over_cellular_subtitle">オフの場合、自動同期は Wi-Fi 接続を待ちます</string>
+
+    <!-- Preserved Zotify v1.0.8 strings -->
+    <string name="advanced_options">詳細設定</string>
+    <string name="legacy_mesh_gradient">従来のメッシュ グラデーション</string>
+    <string name="legacy_mesh_gradient_subtitle">v1.5 のプレーヤー背面の流れるカラー アニメーションを復元します</string>
+    <string name="search_source_youtube" translatable="false">YouTube</string>
+    <string name="update_versions" translatable="false">Current: %1$s · Available: %2$s</string>
+    <string name="settings_update_check_subtitle" translatable="false">Current %1$s · Background alerts need notifications</string>
+    <string name="settings_update_available" translatable="false">Current %1$s · Update %2$s available</string>
+    <string name="settings_update_current" translatable="false">Zotify Music is up to date (%1$s).</string>
+    <string name="settings_update_no_apk" translatable="false">A newer release exists, but has no compatible verified APK.</string>
+    <string name="settings_update_check_failed" translatable="false">Could not check GitHub right now. Try again later.</string>
+    <string name="update_notification_channel" translatable="false">App updates</string>
+    <string name="update_notification_channel_description" translatable="false">Alerts when a verified Zotify Music update is available.</string>
+    <string name="update_notification_title" translatable="false">Zotify Music update available: v%1$s</string>
+    <string name="update_notification_body" translatable="false">Tap to review the update and choose whether to download it.</string>
+    <string name="update_unavailable" translatable="false">No compatible APK available</string>
+    <string name="pipeline_pcm_data_rate" translatable="false">PCM Data Rate</string>
+    <string name="pipeline_unknown_source" translatable="false">Unknown — source not attributed</string>
+    <string name="pipeline_unknown_format" translatable="false">Unknown — Media3 has not reported this track format</string>
+    <string name="pipeline_unknown_bit_depth" translatable="false">Unknown — bit depth not exposed by the input format</string>
+    <string name="pipeline_unknown_sample_rate" translatable="false">Unknown — sample rate not exposed by the input format</string>
+    <string name="pipeline_unknown_bitrate" translatable="false">Unknown — encoded bitrate not supplied</string>
+    <string name="pipeline_unknown_channels" translatable="false">Unknown — channel count not exposed by the input format</string>
+    <string name="pipeline_unknown_pcm_data_rate" translatable="false">Unknown — sample parameters are incomplete</string>
+    <string name="pipeline_not_applicable_bit_depth" translatable="false">Not applicable — selected input is not lossless</string>
+    <string name="pipeline_not_applicable_pcm_rate" translatable="false">Not applicable — selected input is not lossless</string>
+    <string name="pipeline_source_claim" translatable="false">Source claim</string>
+    <string name="pipeline_provenance_reported" translatable="false">reported</string>
+    <string name="pipeline_provenance_measured" translatable="false">measured</string>
+    <string name="pipeline_provenance_source" translatable="false">source-reported</string>
+    <string name="pipeline_provenance_derived" translatable="false">derived</string>
+    <string name="pipeline_provenance_unknown" translatable="false">provenance unknown</string>
+    <string name="addon_network_access_title" translatable="false">Allow this remote source?</string>
+    <string name="addon_network_access_body" translatable="false">Enabling sends search terms, selected quality, and track IDs to this remote source. A legacy module source can also supply JavaScript that runs in a sandbox and contacts its services. The source is not given access to Zotify Music lyrics, clipboard, library, playlists, listening history, account data, or unrelated text. Only continue if you trust its operator.</string>
+    <string name="addon_network_access_allow" translatable="false">Allow and enable</string>
 </resources>
