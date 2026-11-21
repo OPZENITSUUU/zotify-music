@@ -1395,7 +1395,7 @@ private fun OutputPartyPill(
             PillDivider()
             PillSegment(
                 icon = Icons.Rounded.Headphones,
-                iconSize = PILL_HEADPHONES_SIZE,
+                iconSize = PILL_OUTPUT_SIZE,
                 contentDescription = stringResource(Res.string.audio_output),
                 onClick = onOutput,
             )
