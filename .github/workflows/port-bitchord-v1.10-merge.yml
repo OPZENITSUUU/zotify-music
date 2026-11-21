@@ -50,7 +50,7 @@ jobs:
 
           # Restore project-owned files from the untouched Zotify main snapshot.
           # The previous patch experiment is not allowed to replace these.
-          git checkout "$ZOTIFY_BASE" -- .github README.md Banner.png Logo.png MAINTAINERS.md .gitignore build.gradle.kts tv/build.gradle.kts
+          git checkout "$ZOTIFY_BASE" -- .github README.md Banner.png MAINTAINERS.md .gitignore build.gradle.kts tv/build.gradle.kts
           git add -A
 
           # Bridge the independent Zotify history to its actual BitChord ancestor
@@ -113,7 +113,7 @@ jobs:
 
           # Preserve Zotify app identity and settings plugin pins even when those
           # Gradle files happened to auto-merge without a conflict.
-          git checkout "$ZOTIFY_BASE" -- build.gradle.kts tv/build.gradle.kts .github README.md Banner.png Logo.png MAINTAINERS.md .gitignore
+          git checkout "$ZOTIFY_BASE" -- build.gradle.kts tv/build.gradle.kts .github README.md Banner.png MAINTAINERS.md .gitignore
           # Restore settings with the explicit plugin-version resolution fix
           # already committed on this integration branch.
           git checkout "$target_head" -- settings.gradle.kts
