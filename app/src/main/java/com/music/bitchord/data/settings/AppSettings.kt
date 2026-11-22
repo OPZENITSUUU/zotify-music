@@ -682,14 +682,7 @@ object AppSettings {
 
     // ── Discord Rich Presence ───────────────────────────────────────────
 
-    /**
-     * The connected Discord account's token, mirrored out of [AuthStore] so
-     * [PlaybackService][com.music.bitchord.playback.PlaybackService] can pick
-     * up a login without polling for one. Empty means not connected.
-     *
-     * Only the mirror is here — the persisted copy is encrypted, because unlike
-     * a scrobbler key this one is the account itself.
-     */
+    /** Encrypted OAuth app session mirrored for the playback service. */
     val discordSessionToken = MutableStateFlow("")
 
     /**
