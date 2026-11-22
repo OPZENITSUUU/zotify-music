@@ -1692,6 +1692,14 @@ object AppSettings {
         }
     }
 
+    /** Persist a rotated token without restarting the live gateway collector. */
+    fun persistDiscordOAuthTokens(accessToken: String, refreshToken: String, expiresInSeconds: Long) {
+        authStore.discordSessionToken = accessToken.ifBlank { null }
+        authStore.discordRefreshToken = refreshToken.ifBlank { null }
+        authStore.discordTokenExpiresAt = if (accessToken.isBlank() || expiresInSeconds <= 0L) 0L
+            else System.currentTimeMillis() + expiresInSeconds * 1_000L
+    }
+
     /** Stores a per-attempt PKCE verifier in encrypted preferences. */
     fun setPendingDiscordOAuthVerifier(value: String?) {
         authStore.discordOAuthCodeVerifier = value
