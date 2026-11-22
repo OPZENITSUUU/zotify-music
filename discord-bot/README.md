@@ -1,6 +1,8 @@
-# Zotify Discord Bot service
+# Zotify Discord OAuth bridge
 
-Server-side Discord bot bridge for Zotify Music. It uses the official bot account and Discord OAuth identify flow; it never asks for or stores a Discord user token.
+The Render service hosts Zotify's Discord OAuth callback and token-refresh endpoints. The Android app uses the resulting user-authorized Discord access token to connect to Discord's Social Layer Gateway and publish Rich Presence on the **connected user's own profile**, following Mochy's client-side model.
+
+The Discord bot account remains online for the existing bot integration, but it is not the account that displays the listener's music activity.
 
 ## Render
 
@@ -11,27 +13,26 @@ Server-side Discord bot bridge for Zotify Music. It uses the official bot accoun
 
 ## Environment
 
-- `DISCORD_BOT_TOKEN`: token from Discord Developer Portal > Application > Bot.
+- `DISCORD_BOT_TOKEN`: existing official Zotify bot token.
 - `DISCORD_CLIENT_ID` (or `DISCORD_APPLICATION_ID`): Discord application ID.
 - `DISCORD_CLIENT_SECRET`: OAuth client secret.
-- `DISCORD_SESSION_SECRET`: long random HMAC signing secret.
-- `PUBLIC_BASE_URL`: public HTTPS service URL.
+- `DISCORD_SESSION_SECRET`: HMAC secret for short-lived PKCE tickets and legacy bridge sessions.
+- `PUBLIC_BASE_URL`: public HTTPS Render service URL.
 - `DISCORD_REDIRECT_URI`: optional; defaults to `PUBLIC_BASE_URL/auth/discord/callback`.
 
-Never commit secrets.
+Keep all secrets in Render environment variables; never commit them.
 
-## API
+## OAuth endpoints
 
-- `GET /` and `GET /health`: service status.
-- `GET /auth/discord`: starts the app's OAuth + PKCE flow.
-- `POST /auth/discord/exchange`: exchanges a short-lived PKCE ticket for a signed app session.
-- `POST /presence`: publishes the current track and selected activity text.
-- `POST /clear`: clears the activity only when called by the current playback owner.
+- `GET /auth/discord`: starts Discord OAuth with PKCE and requests `openid identify sdk.social_layer_presence`.
+- `GET /auth/discord/callback`: handles Discord's HTTPS callback and redirects a short-lived, PKCE-bound ticket to the Android app.
+- `POST /auth/discord/exchange`: exchanges that ticket plus the app-held verifier for Discord access/refresh tokens and the user's profile.
+- `POST /auth/discord/refresh`: rotates Discord OAuth tokens.
 
-Authenticated requests use `Authorization: Bearer <signed Zotify session>`.
+The app stores access and refresh tokens in Android encrypted storage. Playback activity is sent directly from the app to Discord's Social Layer Gateway; the Render service does not receive track titles or playback events.
 
-## Important Discord platform limits
+## Discord platform setup
 
-This is a Mochy-inspired **bot-profile activity**, not user-account Rich Presence. Discord exposes one gateway presence for a bot account, so the bot can show only one connected listener's track at a time. A short playback lease prevents another connected listener from silently replacing it; competing requests receive HTTP 409. The current owner can clear its own activity.
+The Discord application must have Social SDK / `sdk.social_layer_presence` authorization enabled. The registered HTTPS redirect must match `DISCORD_REDIRECT_URI`.
 
-The bot API supports text activity fields and timestamps. It does not provide the same personal-account Rich Presence assets, clickable buttons, or Spotify-verified badge. The Spotify-style toggle changes the bot activity label to "Spotify"; it is a visual label, not a real Spotify integration or verified Spotify status. Personal-profile Rich Presence requires a supported user-side Discord client integration and cannot be implemented by sending a bot token to Discord.
+The Spotify-style mode changes the activity name and type to Spotify-like wording. It is not a Spotify integration and cannot grant the Spotify-verified badge.
