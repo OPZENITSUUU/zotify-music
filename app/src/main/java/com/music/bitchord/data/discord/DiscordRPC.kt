@@ -197,7 +197,12 @@ class DiscordRPC(
     private suspend fun ensureGateway(): DiscordGateway {
         gateway?.let { return it }
         val created = DiscordGateway(accessToken)
-        created.connect()
+        try {
+            created.connect()
+        } catch (failure: Exception) {
+            created.close()
+            throw failure
+        }
         gateway = created
         return created
     }
