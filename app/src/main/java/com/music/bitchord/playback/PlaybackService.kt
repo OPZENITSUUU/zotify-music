@@ -7170,6 +7170,11 @@ class PlaybackService : MediaLibraryService() {
                 activityName = AppSettings.discordActivityName.value,
                 audioQuality = audioQuality,
                 spotifySpoof = AppSettings.discordSpotifySpoof.value,
+                artworkUrl = song.artworkAt(512),
+                button1Text = AppSettings.discordButton1Text.value,
+                button1Visible = AppSettings.discordButton1Visible.value,
+                button2Text = AppSettings.discordButton2Text.value,
+                button2Visible = AppSettings.discordButton2Visible.value,
             ).onFailure {
                 TrackLog.d("BitChord", "Discord presence failed: ${it.message}", about = song.videoId)
             }
