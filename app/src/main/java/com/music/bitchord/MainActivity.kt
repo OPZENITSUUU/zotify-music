@@ -2893,7 +2893,7 @@ private fun BitChordApp(
                             song = player.song,
                             positionMs = player.position.positionMs,
                             durationMs = player.durationMs,
-                            onOpenLogin = { DiscordOAuth.start(this@MainActivity) },
+                            onOpenLogin = { DiscordOAuth.start(context) },
                             onOpenDialog = { discordDialog = it },
                             contentPadding = listPadding,
                         )
