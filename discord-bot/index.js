@@ -226,32 +226,46 @@ app.post("/auth/discord/exchange", (req, res) => {
 
 app.post("/presence", authorized, (req, res) => {
   if (!ready || !client.user) return res.status(503).json({ error: "bot_not_ready" });
-  const {
-    title, artist, paused = false, activityType = "listening", activityName = "",
-    useDetails = false, audioQuality = ""
-  } = req.body || {};
-  if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title_required" });
+  const body = req.body || {};
+  const title = typeof body.title === "string" ? body.title.trim().slice(0, 90) : "";
+  const artist = typeof body.artist === "string" ? body.artist.trim().slice(0, 70) : "";
+  if (!title) return res.status(400).json({ error: "title_required" });
 
-  const safeTitle = title.trim().slice(0, 70);
-  const safeArtist = typeof artist === "string" ? artist.trim().slice(0, 60) : "";
-  const customName = typeof activityName === "string" ? activityName.trim().slice(0, 32) : "";
-  const safeQuality = typeof audioQuality === "string" ? audioQuality.trim().slice(0, 32) : "";
-  const trackLabel = safeArtist
-    ? (useDetails ? safeTitle + " — " + safeArtist : safeArtist + " — " + safeTitle)
-    : safeTitle;
-  const label = customName ? customName + ": " + trackLabel : trackLabel;
-  const safeActivity = (safeQuality ? label + " · " + safeQuality : label).slice(0, 128);
+  const paused = body.paused === true;
+  const spotifySpoof = body.spotifySpoof === true;
+  const activityName = spotifySpoof
+    ? "Spotify"
+    : (typeof body.activityName === "string" && body.activityName.trim()
+      ? body.activityName.trim().slice(0, 64) : "Zotify Music");
   const types = {
     playing: ActivityType.Playing,
     listening: ActivityType.Listening,
     watching: ActivityType.Watching,
     competing: ActivityType.Competing
   };
-  const type = types[String(activityType).toLowerCase()] ?? ActivityType.Listening;
+  const activityType = spotifySpoof
+    ? ActivityType.Listening
+    : (types[String(body.activityType || "listening").toLowerCase()] ?? ActivityType.Listening);
+  const quality = typeof body.audioQuality === "string" ? body.audioQuality.trim().slice(0, 48) : "";
+  const details = typeof body.details === "string" && body.details.trim()
+    ? body.details.trim().slice(0, 128) : title;
+  const state = [artist, quality].filter(Boolean).join(" · ").slice(0, 128);
+  const activity = { name: activityName, type: activityType, details, state };
+  const positionMs = Number.isFinite(Number(body.positionMs)) ? Math.max(0, Number(body.positionMs)) : 0;
+  const durationMs = Number.isFinite(Number(body.durationMs)) ? Math.max(0, Number(body.durationMs)) : 0;
+  if (!paused && durationMs > 0) {
+    const start = Date.now() - positionMs;
+    activity.timestamps = { start, end: start + durationMs };
+  }
   const statuses = ["online", "idle", "dnd", "invisible"];
-  const status = paused ? "idle" : (statuses.includes(req.body?.status) ? req.body.status : "online");
-  client.user.setPresence({ status, activities: [{ name: safeActivity, type }] });
-  return res.json({ ok: true, activity: safeActivity, status, activityType: String(activityType).toLowerCase() });
+  const status = paused ? "idle" : (statuses.includes(body.status) ? body.status : "online");
+  client.user.setPresence({ status, activities: [activity] });
+  return res.json({
+    ok: true,
+    activity: { name: activityName, details, state, type: activityType },
+    status,
+    note: "Presence is displayed on the Zotify bot account, not the connected user's personal profile."
+  });
 });
 
 app.post("/clear", authorized, (_req, res) => {
