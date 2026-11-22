@@ -1668,6 +1668,18 @@ object AppSettings {
         authStore.discordSessionToken = value.ifEmpty { null }
     }
 
+    /** Stores a per-attempt PKCE verifier in encrypted preferences. */
+    fun setPendingDiscordOAuthVerifier(value: String?) {
+        authStore.discordOAuthCodeVerifier = value
+    }
+
+    /** Takes and clears the verifier so a callback can be exchanged only once. */
+    fun takePendingDiscordOAuthVerifier(): String? {
+        val verifier = authStore.discordOAuthCodeVerifier
+        authStore.discordOAuthCodeVerifier = null
+        return verifier
+    }
+
     fun setDiscordAccount(username: String, name: String, avatar: String?) {
         discordUsername.value = username
         discordName.value = name
