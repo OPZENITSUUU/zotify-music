@@ -32,9 +32,11 @@ class DiscordRPC(private val sessionToken: String) {
         request("/presence", JSONObject().apply {
             put("title", title)
             put("artist", song.artist)
-            put("details", title)
+            // Discord's details line is rendered above its state line.
+            // Match the in-app preview's lead-with-song toggle.
+            put("details", if (useDetails) title else song.artist)
             put("state", buildString {
-                append(song.artist)
+                append(if (useDetails) song.artist else title)
                 audioQuality?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
             })
             put("positionMs", currentPlaybackTimeMillis)
