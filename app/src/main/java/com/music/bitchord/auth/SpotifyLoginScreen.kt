@@ -88,7 +88,7 @@ fun SpotifyLoginScreen(
         factory = { context ->
             WebView(context).apply {
                 // MATCH_PARENT, not the WRAP_CONTENT Compose hands a bare view:
-                // see DiscordLoginScreen — a zero layout viewport collapses
+                // see the shared auth setup — a zero layout viewport collapses
                 // any page sized off `height: 100%`, and Spotify's is.
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
