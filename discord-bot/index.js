@@ -249,7 +249,7 @@ app.post("/presence", authorized, (req, res) => {
   const quality = typeof body.audioQuality === "string" ? body.audioQuality.trim().slice(0, 48) : "";
   const details = typeof body.details === "string" && body.details.trim()
     ? body.details.trim().slice(0, 128) : title;
-  const state = [artist, quality].filter(Boolean).join(" · ").slice(0, 128);
+  const state = (typeof body.state === "string" && body.state.trim() ? body.state.trim() : [artist, quality].filter(Boolean).join(" · ")).slice(0, 128);
   const activity = { name: activityName, type: activityType, details, state };
   const positionMs = Number.isFinite(Number(body.positionMs)) ? Math.max(0, Number(body.positionMs)) : 0;
   const durationMs = Number.isFinite(Number(body.durationMs)) ? Math.max(0, Number(body.durationMs)) : 0;
