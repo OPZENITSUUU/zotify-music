@@ -111,8 +111,15 @@ app.get("/auth/discord", (req, res) => {
 
   // Signed, short-lived state is stateless: Render restarts or instance changes
   // cannot erase it between the authorize request and Discord's callback.
+  // Use a server-held PKCE verifier for Discord's code exchange. The
+  // app's challenge remains separate and protects the one-time mobile ticket.
+  const discordVerifier = crypto.randomBytes(32).toString("base64url");
+  const discordChallenge = crypto.createHash("sha256")
+    .update(discordVerifier)
+    .digest("base64url");
   const state = signPayload({
-    challenge,
+    appChallenge: challenge,
+    discordVerifier,
     exp: Math.floor(Date.now() / 1000) + STATE_TTL_SECONDS,
     nonce: crypto.randomBytes(16).toString("base64url")
   });
@@ -121,6 +128,8 @@ app.get("/auth/discord", (req, res) => {
     response_type: "code",
     redirect_uri: PUBLIC_BASE_URL + CALLBACK_PATH,
     scope: "openid identify sdk.social_layer_presence",
+    code_challenge: discordChallenge,
+    code_challenge_method: "S256",
     state
   });
   return res.redirect(302, "https://discord.com/oauth2/authorize?" + params.toString());
@@ -129,8 +138,10 @@ app.get("/auth/discord", (req, res) => {
 app.get(CALLBACK_PATH, async (req, res) => {
   const state = typeof req.query.state === "string" ? req.query.state : "";
   const authState = verifyPayload(state);
-  if (!authState || typeof authState.challenge !== "string" ||
-      !/^[A-Za-z0-9_-]{43}$/.test(authState.challenge)) {
+  if (!authState || typeof authState.appChallenge !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/.test(authState.appChallenge) ||
+      typeof authState.discordVerifier !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/.test(authState.discordVerifier)) {
     console.warn("Discord OAuth callback rejected: invalid or expired signed state");
     if (req.query.error) return failToApp(res, "access_denied");
     return res.status(400).send("This Discord sign-in link expired. Return to Zotify and tap Connect again.");
@@ -146,7 +157,8 @@ app.get(CALLBACK_PATH, async (req, res) => {
       client_secret: CLIENT_SECRET,
       grant_type: "authorization_code",
       code,
-      redirect_uri: PUBLIC_BASE_URL + CALLBACK_PATH
+      redirect_uri: PUBLIC_BASE_URL + CALLBACK_PATH,
+      code_verifier: authState.discordVerifier
     });
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
@@ -191,7 +203,7 @@ app.get(CALLBACK_PATH, async (req, res) => {
         global_name: user.global_name || user.username,
         avatar: user.avatar || ""
       },
-      challenge: authState.challenge,
+      challenge: authState.appChallenge,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token || "",
       expiresIn: Number(tokenData.expires_in) || 0,
