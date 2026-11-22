@@ -9,10 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Official Discord OAuth authorization-code flow.
@@ -55,38 +54,47 @@ object DiscordOAuth {
         scope.launch(Dispatchers.IO) {
             try {
                 val payload = JSONObject().put("ticket", ticket)
-                val request = Request.Builder()
-                    .url(DiscordRPC.BASE_URL + "/auth/discord/exchange")
-                    .post(
-                        payload.toString().toRequestBody(
-                            "application/json; charset=utf-8".toMediaType()
-                        )
-                    )
-                    .build()
-
-                DiscordRPC.httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        error("Discord authorization failed (HTTP ${response.code})")
-                    }
-                    val result = JSONObject(response.body?.string().orEmpty())
-                    val user = result.getJSONObject("user")
-                    val session = result.getString("access_token")
-                    if (session.isBlank()) error("The Discord session was empty")
-
-                    withContext(Dispatchers.Main) {
-                        AppSettings.setDiscordSessionToken(session)
-                        AppSettings.setDiscordAccount(
-                            user.optString("username"),
-                            user.optString("global_name").ifBlank {
-                                user.optString("username")
-                            },
-                            user.optString("avatar").takeIf { it.isNotBlank() },
-                        )
-                        Toast.makeText(context, "Discord connected", Toast.LENGTH_SHORT).show()
-                    }
+                val connection = (URL(DiscordRPC.BASE_URL + "/auth/discord/exchange")
+                    .openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 10_000
+                    readTimeout = 10_000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 }
-            } 
-            catch (failure: Exception) {
+
+                val responseBody: String
+                try {
+                    connection.outputStream.use {
+                        it.write(payload.toString().toByteArray(Charsets.UTF_8))
+                    }
+                    val code = connection.responseCode
+                    val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                    responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                    if (code !in 200..299) {
+                        error("Discord authorization failed (HTTP $code)")
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+
+                val result = JSONObject(responseBody)
+                val user = result.getJSONObject("user")
+                val session = result.getString("access_token")
+                if (session.isBlank()) error("The Discord session was empty")
+
+                withContext(Dispatchers.Main) {
+                    AppSettings.setDiscordSessionToken(session)
+                    AppSettings.setDiscordAccount(
+                        user.optString("username"),
+                        user.optString("global_name").ifBlank {
+                            user.optString("username")
+                        },
+                        user.optString("avatar").takeIf { it.isNotBlank() },
+                    )
+                    Toast.makeText(context, "Discord connected", Toast.LENGTH_SHORT).show()
+                }
+            } catch (failure: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         context,
