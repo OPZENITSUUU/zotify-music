@@ -119,7 +119,7 @@ app.get("/auth/discord", (req, res) => {
     client_id: CLIENT_ID,
     response_type: "code",
     redirect_uri: PUBLIC_BASE_URL + CALLBACK_PATH,
-    scope: "identify",
+    scope: "openid identify sdk.social_layer_presence",
     state
   });
   return res.redirect(302, "https://discord.com/oauth2/authorize?" + params.toString());
@@ -188,6 +188,9 @@ app.get(CALLBACK_PATH, async (req, res) => {
         avatar: user.avatar || ""
       },
       challenge: authState.challenge,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || "",
+      expiresIn: Number(tokenData.expires_in) || 0,
       exp: Math.floor(Date.now() / 1000) + TICKET_TTL_SECONDS,
       nonce: crypto.randomBytes(16).toString("base64url")
     });
@@ -218,7 +221,9 @@ app.post("/auth/discord/exchange", (req, res) => {
   }
 
   return res.json({
-    access_token: sessionFor(entry.user),
+    access_token: entry.accessToken,
+    refresh_token: entry.refreshToken,
+    expires_in: entry.expiresIn,
     user: {
       id: entry.user.id,
       username: entry.user.username,
@@ -226,6 +231,37 @@ app.post("/auth/discord/exchange", (req, res) => {
       avatar: entry.user.avatar || ""
     }
   });
+});
+
+app.post("/auth/discord/refresh", async (req, res) => {
+  if (!oauthConfigured()) return res.status(503).json({ error: "oauth_not_configured" });
+  const refreshToken = typeof req.body?.refresh_token === "string" ? req.body.refresh_token : "";
+  if (!refreshToken) return res.status(400).json({ error: "refresh_token_required" });
+  try {
+    const body = new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken
+    });
+    const response = await fetch("https://discord.com/api/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || typeof payload.access_token !== "string") {
+      return res.status(401).json({ error: "discord_refresh_failed" });
+    }
+    return res.json({
+      access_token: payload.access_token,
+      refresh_token: payload.refresh_token || refreshToken,
+      expires_in: Number(payload.expires_in) || 0
+    });
+  } catch (error) {
+    console.error("Discord token refresh failed:", error.message);
+    return res.status(502).json({ error: "discord_refresh_unavailable" });
+  }
 });
 
 app.post("/presence", authorized, (req, res) => {
