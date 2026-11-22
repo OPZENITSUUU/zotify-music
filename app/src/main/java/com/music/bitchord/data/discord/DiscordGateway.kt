@@ -142,7 +142,6 @@ internal class DiscordGateway(private val accessToken: String) {
                     socket?.close()
                     return@launch
                 }
-                heartbeatAcked = false
                 sendHeartbeat()
                 delay(heartbeatInterval)
             }
@@ -150,6 +149,7 @@ internal class DiscordGateway(private val accessToken: String) {
     }
 
     private suspend fun sendHeartbeat() {
+        heartbeatAcked = false
         send(JSONObject().put("op", OP_HEARTBEAT).put("d", sequence ?: JSONObject.NULL))
     }
 
