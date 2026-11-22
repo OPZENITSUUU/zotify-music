@@ -101,6 +101,11 @@ class AuthStore(context: Context) {
         get() = prefs.getString(KEY_DISCORD_SESSION_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).apply()
 
+    /** PKCE verifier for the one OAuth flow currently waiting on the browser. */
+    var discordOAuthCodeVerifier: String?
+        get() = prefs.getString(KEY_DISCORD_OAUTH_CODE_VERIFIER, null)
+        set(value) = prefs.edit().putString(KEY_DISCORD_OAUTH_CODE_VERIFIER, value).apply()
+
     init {
         // Remove credentials saved by the retired user-token/self-bot implementation.
         prefs.edit().remove(KEY_DISCORD_TOKEN).remove("discord_bot_secret").apply()
@@ -232,6 +237,7 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_DISCORD_SESSION_TOKEN = "discord_session_token"
+        private const val KEY_DISCORD_OAUTH_CODE_VERIFIER = "discord_oauth_code_verifier"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
     }
