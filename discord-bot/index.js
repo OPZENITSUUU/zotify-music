@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID || process.env.DISCORD_APPLICATION_ID || "1573592442916307075";
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const SESSION_SECRET = process.env.DISCORD_SESSION_SECRET;
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://zotify-discord-bot.onrender.com").replace(/\/$/, "");
@@ -199,7 +199,7 @@ app.post("/presence", requireSession, (req, res) => {
     activity.timestamps = { start, end: start + durationMs };
   }
   client.user.setPresence({
-    status: ["online", "idle", "dnd"].includes(body.status) ? body.status : (paused ? "idle" : "online"),
+    status: paused ? "idle" : (["online", "idle", "dnd"].includes(body.status) ? body.status : "online"),
     activities: [activity],
   });
   return res.json({
