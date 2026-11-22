@@ -99,7 +99,7 @@ app.get("/auth/discord", (req, res) => {
   authorize.searchParams.set("client_id", CLIENT_ID);
   authorize.searchParams.set("response_type", "code");
   authorize.searchParams.set("redirect_uri", DISCORD_REDIRECT_URI);
-  authorize.searchParams.set("scope", "identify");
+  authorize.searchParams.set("scope", "openid identify sdk.social_layer_presence");
   authorize.searchParams.set("state", state);
   res.redirect(302, authorize.toString());
 });
@@ -145,6 +145,9 @@ app.get("/auth/discord/callback", async (req, res) => {
     oauthTickets.set(ticket, {
       user: { id: user.id, username: user.username, global_name: user.global_name || user.username, avatar: user.avatar || null },
       challenge: state.challenge,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || "",
+      expiresIn: Number(tokenData.expires_in) || 0,
       expiresAt: Date.now() + 2 * 60 * 1000,
     });
     const target = new URL(state.appRedirect);
@@ -168,11 +171,42 @@ app.post("/auth/discord/exchange", (req, res) => {
     return res.status(400).json({ error: "invalid_or_expired_ticket" });
   }
   return res.json({
-    access_token: signSession(entry.user),
+    access_token: entry.accessToken,
+    refresh_token: entry.refreshToken,
     token_type: "Bearer",
-    expires_in: 60 * 60 * 24 * 30,
+    expires_in: entry.expiresIn,
     user: entry.user,
   });
+});
+
+app.post("/auth/discord/refresh", async (req, res) => {
+  if (!CLIENT_ID || !CLIENT_SECRET) return res.status(503).json({ error: "oauth_not_configured" });
+  const refreshToken = typeof req.body?.refresh_token === "string" ? req.body.refresh_token : "";
+  if (!refreshToken) return res.status(400).json({ error: "refresh_token_required" });
+  try {
+    const response = await fetch("https://discord.com/api/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || typeof payload.access_token !== "string") {
+      return res.status(401).json({ error: "discord_refresh_failed" });
+    }
+    return res.json({
+      access_token: payload.access_token,
+      refresh_token: payload.refresh_token || refreshToken,
+      expires_in: Number(payload.expires_in) || 0,
+    });
+  } catch (error) {
+    console.error("Discord token refresh failed:", error.message);
+    return res.status(502).json({ error: "discord_refresh_unavailable" });
+  }
 });
 
 app.post("/presence", requireSession, (req, res) => {
