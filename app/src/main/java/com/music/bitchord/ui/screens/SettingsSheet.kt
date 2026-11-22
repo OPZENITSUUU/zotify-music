@@ -1811,7 +1811,7 @@ fun SettingsScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    context.resources.getStringArray(R.array.whats_new_v1_10).forEach { item ->
+                    context.resources.getStringArray(R.array.whats_new_v1_11).forEach { item ->
                         Text(
                             text = "• $item",
                             style = MaterialTheme.typography.bodyMedium,
