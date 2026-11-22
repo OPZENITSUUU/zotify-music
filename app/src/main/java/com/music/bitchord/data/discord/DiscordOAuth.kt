@@ -52,10 +52,15 @@ object DiscordOAuth {
     fun consumeCallback(context: Context, intent: Intent?, scope: CoroutineScope) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val callback = intent.data ?: return
-        if (callback.scheme != "zotify" ||
-            callback.host != "discord" ||
-            callback.path != "/oauth/callback"
-        ) return
+        if (callback.scheme != "zotify" || callback.host != "discord") return
+
+        // A bare public install link bounces here first. Generate PKCE locally,
+        // store the verifier encrypted, then begin the ordinary OAuth request.
+        if (callback.path == "/oauth/start") {
+            start(context)
+            return
+        }
+        if (callback.path != "/oauth/callback") return
 
         val error = callback.getQueryParameter("error")
         if (!error.isNullOrBlank()) {
