@@ -173,7 +173,7 @@
     <string name="whats_new">What’s new</string>
     <string name="whats_new_subtitle" translatable="false">See the highlights in Zotify Music v1.10</string>
     <string name="whats_new_title" translatable="false">What’s new in Zotify Music v1.10</string>
-    <string-array name="whats_new_v1_10">
+    <string-array name="whats_new_v1_10" translatable="false">
         <item>Mochy-compatible Appearance Skin Manager: import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.</item>
         <item>Review skin metadata and supported or unsupported settings before installing a pack.</item>
         <item>Customise accent colour, pure-black mode, and artwork corner radius with native appearance controls.</item>
