@@ -31,6 +31,8 @@ class DiscordRPC(private val sessionToken: String) {
         request("/presence", JSONObject().apply {
             put("title", title)
             put("artist", song.artist)
+            put("useDetails", useDetails)
+            audioQuality?.takeIf { it.isNotBlank() }?.let { put("audioQuality", it) }
             put("paused", paused)
             put("activityType", activityType)
             put("activityName", activityName)
