@@ -3,9 +3,11 @@ package com.music.bitchord.data.discord
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.util.Locale
 
 /**
@@ -23,6 +25,7 @@ class DiscordRPC(
         System.currentTimeMillis() + expiresInSeconds * 1_000L
     } else 0L
     private var gateway: DiscordGateway? = null
+    private val externalAssets = LinkedHashMap<String, String>(64, 0.75f, true)
     private var lastActivity: JSONObject? = null
     private var lastStatus: String = "online"
 
@@ -38,6 +41,11 @@ class DiscordRPC(
         audioQuality: String? = null,
         paused: Boolean = false,
         spotifySpoof: Boolean = false,
+        artworkUrl: String? = null,
+        button1Text: String = "",
+        button1Visible: Boolean = true,
+        button2Text: String = "",
+        button2Visible: Boolean = true,
     ) = runCatching {
         val title = if (playbackSpeed != 1.0f) {
             "${song.title} [${"%.2f".format(Locale.ROOT, playbackSpeed)}x]"
@@ -65,6 +73,30 @@ class DiscordRPC(
             .put("application_id", APPLICATION_ID)
             .put("details", details.take(128))
             .put("state", state.take(128))
+        val registeredArtwork = artworkUrl?.takeIf { it.startsWith("https://") }?.let { registerExternalAsset(it) }
+        if (!registeredArtwork.isNullOrBlank()) {
+            activity.put("assets", JSONObject()
+                .put("large_image", registeredArtwork)
+                .put("large_text", title.take(128)))
+        }
+        val buttonLabels = JSONArray()
+        val buttonUrls = JSONArray()
+        if (button1Visible) {
+            buttonLabels.put(button1Text.trim().ifBlank { "YouTube Music" }.take(32))
+            val video = song.videoId.trim()
+            val query = URLEncoder.encode("${song.title} ${song.artist}", Charsets.UTF_8.name())
+            buttonUrls.put(if (video.isNotBlank()) "https://music.youtube.com/watch?v=$video"
+                else "https://music.youtube.com/search?q=$query")
+        }
+        if (button2Visible) {
+            buttonLabels.put(button2Text.trim().ifBlank { "Spotify" }.take(32))
+            val query = URLEncoder.encode("${song.title} ${song.artist}", Charsets.UTF_8.name())
+            buttonUrls.put("https://open.spotify.com/search/$query")
+        }
+        if (buttonLabels.length() > 0) {
+            activity.put("buttons", buttonLabels)
+            activity.put("metadata", JSONObject().put("button_urls", buttonUrls))
+        }
         if (!paused && durationMillis > 0L) {
             val timestamps = JSONObject().put("start", start)
             if (type == 2 || spotifySpoof) timestamps.put("end", end)
@@ -106,6 +138,46 @@ class DiscordRPC(
         val activity = lastActivity
         if (activity != null) publish(activity, lastStatus)
         else ensureGateway()
+    }
+
+    private suspend fun registerExternalAsset(url: String): String? = withContext(Dispatchers.IO) {
+        synchronized(externalAssets) { externalAssets[url] }?.let { return@withContext it }
+        fun register(): String? {
+            val connection = (URL("https://discord.com/api/v10/applications/$APPLICATION_ID/external-assets")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 10_000
+                readTimeout = 10_000
+                doOutput = true
+                setRequestProperty("Authorization", "Bearer $accessToken")
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            }
+            val response: String
+            try {
+                connection.outputStream.use {
+                    it.write(JSONObject().put("urls", JSONArray().put(url)).toString().toByteArray(Charsets.UTF_8))
+                }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                if (code !in 200..299) return null
+            } finally {
+                connection.disconnect()
+            }
+            val path = runCatching { JSONArray(response).optJSONObject(0)?.optString("external_asset_path") }.getOrNull()
+                ?.takeIf { it.isNotBlank() } ?: return null
+            return "mp:$path"
+        }
+        var registered = register()
+        if (registered == null && refreshToken.isNotBlank()) {
+            runCatching { refreshTokens() }
+            registered = register()
+        }
+        if (registered != null) synchronized(externalAssets) {
+            externalAssets[url] = registered
+            if (externalAssets.size > 128) externalAssets.remove(externalAssets.keys.first())
+        }
+        registered
     }
 
     private suspend fun publish(activity: JSONObject, status: String) {
