@@ -164,12 +164,12 @@ app.post("/auth/discord/exchange", (req, res) => {
   const ticket = req.body && req.body.ticket;
   const verifier = req.body && req.body.code_verifier;
   const entry = oauthTickets.get(ticket);
-  oauthTickets.delete(ticket);
   if (!entry || entry.expiresAt <= Date.now() ||
       typeof verifier !== "string" || verifier.length < 43 || verifier.length > 128 ||
       sha256Base64Url(verifier) !== entry.challenge) {
     return res.status(400).json({ error: "invalid_or_expired_ticket" });
   }
+  oauthTickets.delete(ticket);
   return res.json({
     access_token: entry.accessToken,
     refresh_token: entry.refreshToken,
