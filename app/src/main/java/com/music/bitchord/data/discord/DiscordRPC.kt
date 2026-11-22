@@ -22,6 +22,7 @@ class DiscordRPC(private val sessionToken: String) {
         activityName: String = "",
         audioQuality: String? = null,
         paused: Boolean = false,
+        spotifySpoof: Boolean = false,
     ) = runCatching {
         val title = if (playbackSpeed != 1.0f) {
             "${song.title} [${"%.2f".format(Locale.ROOT, playbackSpeed)}x]"
@@ -31,9 +32,16 @@ class DiscordRPC(private val sessionToken: String) {
         request("/presence", JSONObject().apply {
             put("title", title)
             put("artist", song.artist)
+            put("details", title)
+            put("state", buildString {
+                append(song.artist)
+                audioQuality?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
+            })
+            put("positionMs", currentPlaybackTimeMillis)
+            put("durationMs", durationMillis)
             put("useDetails", useDetails)
-            audioQuality?.takeIf { it.isNotBlank() }?.let { put("audioQuality", it) }
             put("paused", paused)
+            put("spotifySpoof", spotifySpoof)
             put("activityType", activityType)
             put("activityName", activityName)
             put("status", status)
