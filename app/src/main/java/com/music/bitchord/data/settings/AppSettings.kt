@@ -682,8 +682,8 @@ object AppSettings {
 
     // ── Discord Rich Presence ───────────────────────────────────────────
 
-    /** Encrypted shared secret used only to authenticate with the official Zotify bot bridge. */
-    val discordBotSecret = MutableStateFlow("")
+    /** Encrypted OAuth app session used to authenticate with the official Zotify bot bridge. */
+    val discordSessionToken = MutableStateFlow("")
 
     // Legacy account labels are retained as empty compatibility flows for older UI surfaces.
     val discordUsername = MutableStateFlow("")
@@ -981,7 +981,7 @@ object AppSettings {
             webdavPassword.value,
         )
         pinnedPlaylists.value = readPinnedPlaylists()
-        discordBotSecret.value = authStore.discordBotSecret.orEmpty()
+        discordSessionToken.value = authStore.discordSessionToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
         discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
         discordAvatar.value = prefs.getString(KEY_DISCORD_AVATAR, "").orEmpty()
@@ -1658,10 +1658,10 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, value).apply()
     }
 
-    /** Writes the bot bridge secret through to encrypted storage; pass empty to disconnect. */
-    fun setDiscordBotSecret(value: String) {
-        discordBotSecret.value = value
-        authStore.discordBotSecret = value.ifEmpty { null }
+    /** Writes the OAuth app session through to encrypted storage; pass empty to disconnect. */
+    fun setDiscordSessionToken(value: String) {
+        discordSessionToken.value = value
+        authStore.discordSessionToken = value.ifEmpty { null }
     }
 
     fun setDiscordAccount(username: String, name: String, avatar: String?) {
@@ -1924,9 +1924,9 @@ object AppSettings {
         return stored.split(",").filter { it.isNotBlank() }
     }
 
-    /** Disconnects the official bot bridge and erases its local shared secret. */
+    /** Disconnects the official bot bridge and erases its local OAuth session. */
     fun clearDiscordAccount() {
-        setDiscordBotSecret("")
+        setDiscordSessionToken("")
         setDiscordAccount("", "", null)
     }
 

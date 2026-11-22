@@ -678,7 +678,7 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * The official bot bridge publishing what's playing to Discord, or null
-     * when the feature is off or no bridge secret is configured. See [DiscordRPC].
+     * when the feature is off or no Discord OAuth session is configured. See [DiscordRPC].
      */
     private var discordRpc: DiscordRPC? = null
 
@@ -6997,7 +6997,7 @@ class PlaybackService : MediaLibraryService() {
     private fun observeDiscord() {
         scope.launch {
             combine(
-                AppSettings.discordBotSecret,
+                AppSettings.discordSessionToken,
                 AppSettings.discordRpcEnabled,
             ) { token, enabled -> token.takeIf { enabled && it.isNotBlank() } }
                 .distinctUntilChanged()

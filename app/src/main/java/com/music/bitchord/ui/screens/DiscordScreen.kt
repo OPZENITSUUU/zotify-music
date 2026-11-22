@@ -159,7 +159,7 @@ fun DiscordScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val botSecret by AppSettings.discordBotSecret.collectAsStateWithLifecycle()
+    val sessionToken by AppSettings.discordSessionToken.collectAsStateWithLifecycle()
     val username by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val name by AppSettings.discordName.collectAsStateWithLifecycle()
     val avatar by AppSettings.discordAvatar.collectAsStateWithLifecycle()
@@ -173,7 +173,7 @@ fun DiscordScreen(
     val infoDismissed by AppSettings.discordInfoDismissed.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
-    val connected = botSecret.isNotEmpty()
+    val connected = sessionToken.isNotEmpty()
     val discordIcon = ImageVector.vectorResource(R.drawable.ic_discord)
 
     Column(
@@ -201,13 +201,13 @@ fun DiscordScreen(
 
         if (!connected) {
             SettingsGroup(
-                footer = "Paste the private bridge secret from your Render service. This is not your Discord account token.",
+                footer = "Sign in with Discord to authorize Zotify Music. No Discord password, bot token, or bridge secret is entered here.",
             ) {
                 SettingsRow(
-                    icon = Icons.Rounded.Key,
-                    title = "Connect official bot",
-                    subtitle = "Enter the Zotify bot bridge secret",
-                    onClick = { onOpenDialog(DiscordDialog.BOT_SECRET) },
+                    icon = discordIcon,
+                    title = "Connect with Discord",
+                    subtitle = "Authorize the official Zotify bot",
+                    onClick = onOpenLogin,
                 )
             }
         }
@@ -618,25 +618,7 @@ fun DiscordDialogHost(
     onDismiss: () -> Unit,
 ) {
     when (which) {
-        DiscordDialog.BOT_SECRET -> {
-            val current by AppSettings.discordBotSecret.collectAsStateWithLifecycle()
-            var input by remember { mutableStateOf(current) }
-            TextValueAlert(
-                hazeState = hazeState,
-                title = "Zotify bot bridge secret",
-                message = "Use the ZOTIFY_WEBHOOK_SECRET value configured privately in Render. Never paste your Discord bot token here.",
-                placeholder = "Bridge secret",
-                isPassword = true,
-                value = input,
-                onValueChange = { input = it },
-                onSave = {
-                    AppSettings.setDiscordBotSecret(input.trim())
-                    onDismiss()
-                },
-                onDismiss = onDismiss,
-            )
-        }
-
+        DiscordDialog.BOT_SECRET -> onDismiss()
         DiscordDialog.STATUS -> {
             val current by AppSettings.discordStatus.collectAsStateWithLifecycle()
             val copy = localizedStatusCopy()

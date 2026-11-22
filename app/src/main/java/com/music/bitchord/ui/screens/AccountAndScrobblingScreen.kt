@@ -64,7 +64,7 @@ fun AccountAndScrobblingScreen(
     val listenBrainzEnabled by AppSettings.listenBrainzEnabled.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     val listenBrainzPrimaryArtistOnly by AppSettings.listenBrainzPrimaryArtistOnly.collectAsStateWithLifecycle()
-    val discordBotSecret by AppSettings.discordBotSecret.collectAsStateWithLifecycle()
+    val discordSessionToken by AppSettings.discordSessionToken.collectAsStateWithLifecycle()
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
@@ -140,9 +140,9 @@ fun AccountAndScrobblingScreen(
                 icon = ImageVector.vectorResource(R.drawable.ic_discord),
                 title = "Discord",
                 subtitle = when {
-                    discordBotSecret.isEmpty() -> stringResource(R.string.tap_to_connect)
+                    discordSessionToken.isEmpty() -> stringResource(R.string.tap_to_connect)
                     !discordRpcEnabled -> stringResource(R.string.connected_presence_off)
-                    discordBotSecret.isNotEmpty() -> "Connected to Zotify Music bot"
+                    discordSessionToken.isNotEmpty() -> "Connected to Zotify Music bot"
                     else -> stringResource(R.string.sharing_listens)
                 },
                 onClick = onOpenDiscord,

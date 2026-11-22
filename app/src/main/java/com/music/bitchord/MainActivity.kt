@@ -19,6 +19,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.music.bitchord.data.discord.DiscordOAuth
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -369,7 +371,8 @@ internal fun shouldSkipAfterDislike(
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Discord presence is published through the authenticated official-bot bridge.
+        DiscordOAuth.consumeCallback(this, intent, lifecycleScope)
+        // Discord presence is published through the authenticated official-bot OAuth session.
         if (intent?.action == ACTION_OPEN_UPDATE_FROM_NOTIFICATION) {
             updateNotificationTapped.value = true
         }
@@ -503,6 +506,7 @@ class MainActivity : AppCompatActivity() {
         // Replaces what getIntent() returns, so the extra this consumes is the
         // one that just arrived and not the one the task was started with.
         setIntent(intent)
+        DiscordOAuth.consumeCallback(this, intent, lifecycleScope)
         if (intent.action == ACTION_OPEN_UPDATE_FROM_NOTIFICATION) {
             updateNotificationTapped.value = true
         }
@@ -2889,7 +2893,7 @@ private fun BitChordApp(
                             song = player.song,
                             positionMs = player.position.positionMs,
                             durationMs = player.durationMs,
-                            onOpenLogin = { discordDialog = DiscordDialog.BOT_SECRET },
+                            onOpenLogin = { DiscordOAuth.start(this@MainActivity) },
                             onOpenDialog = { discordDialog = it },
                             contentPadding = listPadding,
                         )

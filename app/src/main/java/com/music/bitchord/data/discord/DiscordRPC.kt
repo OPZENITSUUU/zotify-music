@@ -6,7 +6,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** Client for the official Zotify Discord bot service. It never logs in as a Discord user. */
-class DiscordRPC(private val secret: String) {
+class DiscordRPC(private val sessionToken: String) {
     suspend fun updateSong(
         song: Song,
         currentPlaybackTimeMillis: Long,
@@ -50,7 +50,7 @@ class DiscordRPC(private val secret: String) {
             requestMethod = if (body == null) "GET" else "POST"
             connectTimeout = 8_000
             readTimeout = 8_000
-            if (authenticated) setRequestProperty("Authorization", "Bearer $secret")
+            if (authenticated) setRequestProperty("Authorization", "Bearer $sessionToken")
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
@@ -65,6 +65,7 @@ class DiscordRPC(private val secret: String) {
     }
 
     companion object {
+        internal val httpClient: okhttp3.OkHttpClient by lazy { okhttp3.OkHttpClient.Builder().build() }
         const val BASE_URL = "https://zotify-discord-bot.onrender.com"
     }
 }
