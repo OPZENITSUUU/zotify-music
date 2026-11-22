@@ -94,9 +94,6 @@ class DiscordRPC(private val sessionToken: String) {
     }
 
     companion object {
-        internal val httpClient: okhttp3.OkHttpClient by lazy {
-            okhttp3.OkHttpClient.Builder().build()
-        }
         const val BASE_URL = "https://zotify-discord-bot.onrender.com"
     }
 }
