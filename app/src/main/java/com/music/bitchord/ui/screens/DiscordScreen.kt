@@ -33,11 +33,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,21 +55,15 @@ import coil3.compose.AsyncImage
 import com.music.zotifymusic.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.discord.DiscordRPC
-import com.music.bitchord.data.discord.SuperProperties
 import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.ChoiceAlert
-import com.music.bitchord.ui.components.DiscordTokenAlert
 import com.music.bitchord.ui.components.TextValueAlert
 import com.music.bitchord.ui.components.thumbnailBorder
-import com.my.kizzy.rpc.KizzyRPC
 import dev.chrisbanes.haze.HazeState
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** Which dot Discord draws on the avatar, and what it tells other people. */
@@ -97,7 +89,7 @@ enum class DiscordActivityKind(val value: String, val verb: String, val label: S
  * rendered by the activity, above the tab bar and mini player, rather than
  * inside the scrolling screen where a full-screen scrim would be trapped.
  */
-enum class DiscordDialog { TOKEN, STATUS, ACTIVITY_TYPE, ACTIVITY_NAME }
+enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME }
 
 private fun statusOf(value: String) =
     DiscordPresenceStatus.entries.firstOrNull { it.value == value } ?: DiscordPresenceStatus.ONLINE
@@ -164,7 +156,7 @@ fun DiscordScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val token by AppSettings.discordToken.collectAsStateWithLifecycle()
+    val sessionToken by AppSettings.discordSessionToken.collectAsStateWithLifecycle()
     val username by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val name by AppSettings.discordName.collectAsStateWithLifecycle()
     val avatar by AppSettings.discordAvatar.collectAsStateWithLifecycle()
@@ -175,31 +167,10 @@ fun DiscordScreen(
     val status by AppSettings.discordStatus.collectAsStateWithLifecycle()
     val activityType by AppSettings.discordActivityType.collectAsStateWithLifecycle()
     val activityName by AppSettings.discordActivityName.collectAsStateWithLifecycle()
-    val infoDismissed by AppSettings.discordInfoDismissed.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
-    val connected = token.isNotEmpty()
+    val connected = sessionToken.isNotEmpty()
     val discordIcon = ImageVector.vectorResource(R.drawable.ic_discord)
-
-    // Refreshes the cached profile whenever the connected account changes. A
-    // failure is left to stand rather than clearing the cache: the usual reason
-    // for one is being offline, and blanking the name every time the phone loses
-    // signal would read as having been signed out.
-    LaunchedEffect(token) {
-        if (token.isEmpty()) {
-            AppSettings.setDiscordAccount("", "", null)
-            return@LaunchedEffect
-        }
-        withContext(Dispatchers.IO) {
-            KizzyRPC.getUserInfo(
-                token,
-                SuperProperties.userAgent,
-                SuperProperties.superPropertiesBase64,
-            ).onSuccess {
-                AppSettings.setDiscordAccount(it.username, it.name, it.avatar)
-            }
-        }
-    }
 
     Column(
         modifier = modifier
@@ -226,27 +197,20 @@ fun DiscordScreen(
 
         if (!connected) {
             SettingsGroup(
-                footer = stringResource(R.string.discord_sign_in_footer),
+                footer = "Connect with Discord OAuth. Your Discord password and Discord account token are never entered into Zotify.",
             ) {
                 SettingsRow(
-                    icon = Icons.Rounded.Key,
-                    title = stringResource(R.string.enter_token_instead),
-                    subtitle = stringResource(R.string.enter_token_instead_subtitle),
-                    onClick = { onOpenDialog(DiscordDialog.TOKEN) },
+                    icon = discordIcon,
+                    title = "Connect with Discord",
+                    subtitle = "Authorize the official Zotify bot",
+                    onClick = onOpenLogin,
                 )
             }
         }
 
-        AnimatedVisibility(visible = !infoDismissed) {
-            NoticeCard(
-                text = stringResource(R.string.discord_token_warning),
-                onDismiss = { AppSettings.setDiscordInfoDismissed(true) },
-            )
-        }
-
         SettingsGroup(
             header = stringResource(R.string.rich_presence),
-            footer = stringResource(R.string.discord_presence_footer),
+            footer = "Activity is published by the Zotify Music bot, not as your personal Discord status. Discord bots support text-only activity.",
         ) {
             SettingsRow(
                 icon = discordIcon,
@@ -686,48 +650,7 @@ fun DiscordDialogHost(
     hazeState: HazeState,
     onDismiss: () -> Unit,
 ) {
-    val rejectedToken = stringResource(R.string.discord_token_rejected)
     when (which) {
-        DiscordDialog.TOKEN -> {
-            val scope = rememberCoroutineScope()
-            var input by remember { mutableStateOf("") }
-            var error by remember { mutableStateOf<String?>(null) }
-            var checking by remember { mutableStateOf(false) }
-            DiscordTokenAlert(
-                hazeState = hazeState,
-                tokenInput = input,
-                onTokenInputChange = { input = it },
-                error = error,
-                loading = checking,
-                // Verified before it is saved, because a token that doesn't work
-                // fails silently later: the presence simply never appears, with
-                // nothing on this screen to say why.
-                onSave = {
-                    checking = true
-                    error = null
-                    scope.launch {
-                        val trimmed = input.trim()
-                        val info = withContext(Dispatchers.IO) {
-                            KizzyRPC.getUserInfo(
-                                trimmed,
-                                SuperProperties.userAgent,
-                                SuperProperties.superPropertiesBase64,
-                            )
-                        }
-                        info.onSuccess {
-                            AppSettings.setDiscordAccount(it.username, it.name, it.avatar)
-                            AppSettings.setDiscordToken(trimmed)
-                            onDismiss()
-                        }.onFailure {
-                            error = rejectedToken
-                            checking = false
-                        }
-                    }
-                },
-                onDismiss = onDismiss,
-            )
-        }
-
         DiscordDialog.STATUS -> {
             val current by AppSettings.discordStatus.collectAsStateWithLifecycle()
             val copy = localizedStatusCopy()

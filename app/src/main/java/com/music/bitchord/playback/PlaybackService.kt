@@ -7001,7 +7001,7 @@ class PlaybackService : MediaLibraryService() {
     private fun observeDiscord() {
         scope.launch {
             combine(
-                AppSettings.discordToken,
+                AppSettings.discordSessionToken,
                 AppSettings.discordRpcEnabled,
             ) { token, enabled -> token.takeIf { enabled && it.isNotBlank() } }
                 .distinctUntilChanged()
@@ -7035,7 +7035,7 @@ class PlaybackService : MediaLibraryService() {
                     discordRpc = null
 
                     if (token == null) return@collectLatest
-                    discordRpc = DiscordRPC(this@PlaybackService, token)
+                    discordRpc = DiscordRPC(token)
                     // A presence that only appeared at the next track change
                     // would make turning the switch on look like it had done
                     // nothing for the length of a song.

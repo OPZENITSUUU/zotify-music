@@ -6,12 +6,10 @@ import android.content.SharedPreferences
 /**
  * Encrypted-at-rest storage for credentials.
  *
- * Two live here: the YouTube Music session cookie, and — if the user turns on
- * the Discord integration — that account's own bearer token. Neither is a
- * password: the Google one is typed into accounts.google.com inside a WebView,
- * and the Discord one is read out of a completed login session. But both grant
- * full access to their account, so they don't go in the plain prefs the
- * scrobbler tokens use.
+ * The YouTube Music session cookie and the Zotify bot-bridge OAuth session live
+ * here. Discord passwords and user access tokens are never collected by the app.
+ * Both stored credentials are kept out of the plain preferences used for
+ * ordinary settings.
  *
  * A restored file whose keyset this device can't unwrap is recreated, and a
  * Keystore that can't be used at all degrades to plain prefs rather than
@@ -98,10 +96,20 @@ class AuthStore(context: Context) {
     val isSignedIn: Boolean
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
-    /** The Discord account's bearer token. See DiscordRPC for why a user token. */
-    var discordToken: String?
-        get() = prefs.getString(KEY_DISCORD_TOKEN, null)
-        set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
+    /** OAuth app session for the user-authorized Zotify bot connection. */
+    var discordSessionToken: String?
+        get() = prefs.getString(KEY_DISCORD_SESSION_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).apply()
+
+    /** PKCE verifier for the one OAuth flow currently waiting on the browser. */
+    var discordOAuthCodeVerifier: String?
+        get() = prefs.getString(KEY_DISCORD_OAUTH_CODE_VERIFIER, null)
+        set(value) = prefs.edit().putString(KEY_DISCORD_OAUTH_CODE_VERIFIER, value).apply()
+
+    init {
+        // Remove credentials saved by the retired user-token/self-bot implementation.
+        prefs.edit().remove(KEY_DISCORD_TOKEN).remove("discord_bot_secret").apply()
+    }
 
     /**
      * The WebDAV server password. Encrypted like every other credential here:
@@ -228,6 +236,8 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_NAME = "channel_name"
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
+        private const val KEY_DISCORD_SESSION_TOKEN = "discord_session_token"
+        private const val KEY_DISCORD_OAUTH_CODE_VERIFIER = "discord_oauth_code_verifier"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
     }

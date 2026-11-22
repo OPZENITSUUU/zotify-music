@@ -7,7 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.music.bitchord.data.listentogether.JamInviteLink
+import com.music.bitchord.data.discord.DiscordOAuth
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.PlayerDeepLink
 import com.music.bitchord.playback.rememberMediaController
@@ -28,6 +30,7 @@ class TvActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DiscordOAuth.consumeCallback(this, intent, lifecycleScope)
 
         // Attach TV Refresh Rate and Display Controller
         TvRefreshRateController.attach(this)
@@ -57,6 +60,7 @@ class TvActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        DiscordOAuth.consumeCallback(this, intent, lifecycleScope)
         consumeLinks(intent)
     }
 

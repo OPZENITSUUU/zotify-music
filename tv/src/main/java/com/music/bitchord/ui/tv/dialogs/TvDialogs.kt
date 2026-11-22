@@ -85,6 +85,7 @@ import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YouTubeProfile
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.discord.DiscordOAuth
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvPinThrottle
 import com.music.bitchord.data.settings.TvSettings
@@ -1148,30 +1149,48 @@ private fun TvGoogleSignIn(viewModel: MainViewModel, onBack: () -> Unit, onSigne
 @Composable
 fun TvDiscordDialog(onDismiss: () -> Unit) {
     val enabled by AppSettings.discordRpcEnabled.collectAsState()
-    val savedToken by AppSettings.discordToken.collectAsState()
-    var token by remember { mutableStateOf(savedToken) }
+    val sessionToken by AppSettings.discordSessionToken.collectAsState()
+    val username by AppSettings.discordUsername.collectAsState()
+    val context = LocalContext.current
+    val connected = sessionToken.isNotBlank()
 
     TvDialog(
         title = "Discord",
-        message = "Show what you're listening to in your Discord status.",
+        message = if (connected) {
+            "Connected as $username. Zotify Music bot activity is shared while playback is active."
+        } else {
+            "Connect securely with Discord OAuth. Zotify never asks for your Discord password or account token."
+        },
         onDismissRequest = onDismiss,
     ) {
-        TvTextField(
-            value = token,
-            onValueChange = { token = it },
-            placeholder = "Discord Token",
-            modifier = Modifier.tvInitialFocus(),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
         TvDialogButton(
-            text = if (enabled) "Turn Off" else "Turn On",
-            enabled = enabled || token.isNotBlank(),
+            text = when {
+                !connected -> "Connect Discord"
+                enabled -> "Turn Off"
+                else -> "Turn On"
+            },
+            modifier = Modifier.tvInitialFocus(),
             onClick = {
-                AppSettings.setDiscordToken(token)
-                AppSettings.setDiscordRpcEnabled(!enabled)
+                if (connected) {
+                    AppSettings.setDiscordRpcEnabled(!enabled)
+                } else {
+                    DiscordOAuth.start(context)
+                }
                 onDismiss()
             },
         )
+        if (connected) {
+            Spacer(modifier = Modifier.height(6.dp))
+            TvDialogButton(
+                text = "Disconnect Discord",
+                onClick = {
+                    AppSettings.setDiscordSessionToken("")
+                    AppSettings.setDiscordAccount("", "", null)
+                    AppSettings.setDiscordRpcEnabled(false)
+                    onDismiss()
+                },
+            )
+        }
         Spacer(modifier = Modifier.height(6.dp))
         TvDialogButton(text = "Cancel", onClick = onDismiss)
     }

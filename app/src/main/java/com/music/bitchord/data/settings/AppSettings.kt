@@ -682,15 +682,8 @@ object AppSettings {
 
     // ── Discord Rich Presence ───────────────────────────────────────────
 
-    /**
-     * The connected Discord account's token, mirrored out of [AuthStore] so
-     * [PlaybackService][com.music.bitchord.playback.PlaybackService] can pick
-     * up a login without polling for one. Empty means not connected.
-     *
-     * Only the mirror is here — the persisted copy is encrypted, because unlike
-     * a scrobbler key this one is the account itself.
-     */
-    val discordToken = MutableStateFlow("")
+    /** Encrypted OAuth app session mirrored for the playback service. */
+    val discordSessionToken = MutableStateFlow("")
 
     /**
      * Who the token belongs to, cached at login. Kept so the settings screen
@@ -992,7 +985,7 @@ object AppSettings {
             webdavPassword.value,
         )
         pinnedPlaylists.value = readPinnedPlaylists()
-        discordToken.value = authStore.discordToken.orEmpty()
+        discordSessionToken.value = authStore.discordSessionToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
         discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
         discordAvatar.value = prefs.getString(KEY_DISCORD_AVATAR, "").orEmpty()
@@ -1670,9 +1663,21 @@ object AppSettings {
     }
 
     /** Writes through to the encrypted store; pass "" to disconnect. */
-    fun setDiscordToken(value: String) {
-        discordToken.value = value
-        authStore.discordToken = value.ifEmpty { null }
+    fun setDiscordSessionToken(value: String) {
+        discordSessionToken.value = value
+        authStore.discordSessionToken = value.ifEmpty { null }
+    }
+
+    /** Stores a per-attempt PKCE verifier in encrypted preferences. */
+    fun setPendingDiscordOAuthVerifier(value: String?) {
+        authStore.discordOAuthCodeVerifier = value
+    }
+
+    /** Takes and clears the verifier so a callback can be exchanged only once. */
+    fun takePendingDiscordOAuthVerifier(): String? {
+        val verifier = authStore.discordOAuthCodeVerifier
+        authStore.discordOAuthCodeVerifier = null
+        return verifier
     }
 
     fun setDiscordAccount(username: String, name: String, avatar: String?) {
@@ -1937,7 +1942,7 @@ object AppSettings {
 
     /** Forgets the account: token and cached profile. */
     fun clearDiscordAccount() {
-        setDiscordToken("")
+        setDiscordSessionToken("")
         setDiscordAccount("", "", null)
     }
 
