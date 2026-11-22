@@ -6,8 +6,8 @@ import android.content.SharedPreferences
 /**
  * Encrypted-at-rest storage for credentials.
  *
- * The YouTube Music session cookie and the Zotify bot-bridge OAuth session live
- * here. Discord passwords and user access tokens are never collected by the app.
+ * The YouTube Music session cookie and Discord user OAuth tokens live
+ * here. Discord passwords are never collected by the app; OAuth access and refresh tokens are encrypted here.
  * Both stored credentials are kept out of the plain preferences used for
  * ordinary settings.
  *
@@ -96,10 +96,20 @@ class AuthStore(context: Context) {
     val isSignedIn: Boolean
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
-    /** OAuth app session for the user-authorized Zotify bot connection. */
+    /** Discord user OAuth access token for the Social Layer gateway. */
     var discordSessionToken: String?
         get() = prefs.getString(KEY_DISCORD_SESSION_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).apply()
+
+    /** Discord OAuth refresh token, encrypted at rest and rotated on refresh. */
+    var discordRefreshToken: String?
+        get() = prefs.getString(KEY_DISCORD_REFRESH_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_DISCORD_REFRESH_TOKEN, value).apply()
+
+    /** Unix epoch milliseconds when the current Discord access token expires. */
+    var discordTokenExpiresAt: Long
+        get() = prefs.getLong(KEY_DISCORD_TOKEN_EXPIRES_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_DISCORD_TOKEN_EXPIRES_AT, value).apply()
 
     /** PKCE verifier for the one OAuth flow currently waiting on the browser. */
     var discordOAuthCodeVerifier: String?
@@ -108,7 +118,16 @@ class AuthStore(context: Context) {
 
     init {
         // Remove credentials saved by the retired user-token/self-bot implementation.
+        val oldBridgeSession = discordSessionToken
+        val isLegacySignedBridgeSession = oldBridgeSession?.count { it == '.' } == 1
         prefs.edit().remove(KEY_DISCORD_TOKEN).remove("discord_bot_secret").apply()
+        // The former Render bridge returned a signed app-session, not a Discord
+        // OAuth token. It cannot authenticate to the user's Social Layer gateway.
+        if (isLegacySignedBridgeSession) {
+            discordSessionToken = null
+            discordRefreshToken = null
+            discordTokenExpiresAt = 0L
+        }
     }
 
     /**
@@ -237,6 +256,8 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_DISCORD_SESSION_TOKEN = "discord_session_token"
+        private const val KEY_DISCORD_REFRESH_TOKEN = "discord_refresh_token"
+        private const val KEY_DISCORD_TOKEN_EXPIRES_AT = "discord_token_expires_at"
         private const val KEY_DISCORD_OAUTH_CODE_VERIFIER = "discord_oauth_code_verifier"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"

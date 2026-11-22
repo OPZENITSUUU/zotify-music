@@ -16,6 +16,11 @@ app.use(express.json({ limit: "16kb" }));
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 let ready = false;
+// Discord exposes one gateway presence for the entire bot account. Keep a short
+// playback lease so one connected Zotify user cannot silently overwrite another.
+let activePresenceOwner = null;
+let activePresenceAt = 0;
+const PRESENCE_LEASE_MS = 90_000;
 
 // OAuth state/tickets are short-lived and single-use. The resulting session is
 // stateless HMAC-signed so a Render restart does not invalidate connected apps.
@@ -94,7 +99,7 @@ app.get("/auth/discord", (req, res) => {
   authorize.searchParams.set("client_id", CLIENT_ID);
   authorize.searchParams.set("response_type", "code");
   authorize.searchParams.set("redirect_uri", DISCORD_REDIRECT_URI);
-  authorize.searchParams.set("scope", "identify");
+  authorize.searchParams.set("scope", "openid identify sdk.social_layer_presence");
   authorize.searchParams.set("state", state);
   res.redirect(302, authorize.toString());
 });
@@ -140,6 +145,9 @@ app.get("/auth/discord/callback", async (req, res) => {
     oauthTickets.set(ticket, {
       user: { id: user.id, username: user.username, global_name: user.global_name || user.username, avatar: user.avatar || null },
       challenge: state.challenge,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || "",
+      expiresIn: Number(tokenData.expires_in) || 0,
       expiresAt: Date.now() + 2 * 60 * 1000,
     });
     const target = new URL(state.appRedirect);
@@ -156,18 +164,49 @@ app.post("/auth/discord/exchange", (req, res) => {
   const ticket = req.body && req.body.ticket;
   const verifier = req.body && req.body.code_verifier;
   const entry = oauthTickets.get(ticket);
-  oauthTickets.delete(ticket);
   if (!entry || entry.expiresAt <= Date.now() ||
       typeof verifier !== "string" || verifier.length < 43 || verifier.length > 128 ||
       sha256Base64Url(verifier) !== entry.challenge) {
     return res.status(400).json({ error: "invalid_or_expired_ticket" });
   }
+  oauthTickets.delete(ticket);
   return res.json({
-    access_token: signSession(entry.user),
+    access_token: entry.accessToken,
+    refresh_token: entry.refreshToken,
     token_type: "Bearer",
-    expires_in: 60 * 60 * 24 * 30,
+    expires_in: entry.expiresIn,
     user: entry.user,
   });
+});
+
+app.post("/auth/discord/refresh", async (req, res) => {
+  if (!CLIENT_ID || !CLIENT_SECRET) return res.status(503).json({ error: "oauth_not_configured" });
+  const refreshToken = typeof req.body?.refresh_token === "string" ? req.body.refresh_token : "";
+  if (!refreshToken) return res.status(400).json({ error: "refresh_token_required" });
+  try {
+    const response = await fetch("https://discord.com/api/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || typeof payload.access_token !== "string") {
+      return res.status(401).json({ error: "discord_refresh_failed" });
+    }
+    return res.json({
+      access_token: payload.access_token,
+      refresh_token: payload.refresh_token || refreshToken,
+      expires_in: Number(payload.expires_in) || 0,
+    });
+  } catch (error) {
+    console.error("Discord token refresh failed:", error.message);
+    return res.status(502).json({ error: "discord_refresh_unavailable" });
+  }
 });
 
 app.post("/presence", requireSession, (req, res) => {
@@ -177,6 +216,11 @@ app.post("/presence", requireSession, (req, res) => {
   const artist = clean(body.artist, 70);
   if (!title) return res.status(400).json({ error: "title_required" });
 
+  const userId = req.discordSession.sub;
+  const now = Date.now();
+  if (activePresenceOwner && activePresenceOwner !== userId && now - activePresenceAt < PRESENCE_LEASE_MS) {
+    return res.status(409).json({ error: "bot_presence_in_use", message: "The shared Zotify bot profile is currently showing another connected listener.", scope: "shared_bot_account", retry_after_ms: Math.max(0, PRESENCE_LEASE_MS - (now - activePresenceAt)) });
+  }
   const paused = body.paused === true;
   const spotifySpoof = body.spotifySpoof === true;
   const activityName = spotifySpoof ? "Spotify" : (clean(body.activityName, 64) || "Zotify Music");
@@ -189,8 +233,8 @@ app.post("/presence", requireSession, (req, res) => {
   const activityType = spotifySpoof
     ? ActivityType.Listening
     : (activityTypeMap[clean(body.activityType, 20).toLowerCase()] ?? ActivityType.Listening);
-  const details = clean(body.details, 128) || title;
-  const state = clean(body.state, 128) || artist;
+  const details = clean(body.details, 128) || (body.useDetails === false ? artist : title);
+  const state = clean(body.state, 128) || (body.useDetails === false ? title : artist);
   const positionMs = Number.isFinite(Number(body.positionMs)) ? Math.max(0, Number(body.positionMs)) : 0;
   const durationMs = Number.isFinite(Number(body.durationMs)) ? Math.max(0, Number(body.durationMs)) : 0;
   const activity = { name: activityName, type: activityType, details, state };
@@ -202,18 +246,26 @@ app.post("/presence", requireSession, (req, res) => {
     status: paused ? "idle" : (["online", "idle", "dnd"].includes(body.status) ? body.status : "online"),
     activities: [activity],
   });
+  activePresenceOwner = userId;
+  activePresenceAt = now;
   return res.json({
     ok: true,
     account: req.discordSession.username,
     activity: { name: activityName, details, state, type: activityType },
-    note: "Discord bot presence is shared by the bot account; it does not change a user's personal profile.",
+    scope: "shared_bot_account",
+    note: "This activity appears on the Zotify bot profile and is shared by all connected listeners. Discord does not let a bot set a user's personal Rich Presence.",
   });
 });
 
-app.post("/clear", requireSession, (_req, res) => {
+app.post("/clear", requireSession, (req, res) => {
   if (!ready || !client.user) return res.status(503).json({ error: "bot_not_ready" });
+  if (activePresenceOwner !== req.discordSession.sub) {
+    return res.json({ ok: true, cleared: false, reason: "not_current_presence_owner" });
+  }
   client.user.setPresence({ status: "online", activities: [] });
-  return res.json({ ok: true });
+  activePresenceOwner = null;
+  activePresenceAt = 0;
+  return res.json({ ok: true, cleared: true });
 });
 
 app.listen(PORT, "0.0.0.0", () => console.log(`HTTP server listening on ${PORT}`));

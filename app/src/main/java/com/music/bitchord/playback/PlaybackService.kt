@@ -7035,7 +7035,18 @@ class PlaybackService : MediaLibraryService() {
                     discordRpc = null
 
                     if (token == null) return@collectLatest
-                    discordRpc = DiscordRPC(token)
+                    val refreshToken = AppSettings.discordRefreshToken.value
+                    val expiresAt = AppSettings.discordTokenExpiresAt.value
+                    val remainingSeconds = if (expiresAt > 0L)
+                        ((expiresAt - System.currentTimeMillis()) / 1_000L).coerceAtLeast(0L)
+                    else 0L
+                    discordRpc = DiscordRPC(
+                        accessToken = token,
+                        refreshToken = refreshToken,
+                        expiresInSeconds = remainingSeconds,
+                    ) { access, refresh, expiresIn ->
+                        AppSettings.persistDiscordOAuthTokens(access, refresh, expiresIn)
+                    }
                     // A presence that only appeared at the next track change
                     // would make turning the switch on look like it had done
                     // nothing for the length of a song.
@@ -7159,6 +7170,11 @@ class PlaybackService : MediaLibraryService() {
                 activityName = AppSettings.discordActivityName.value,
                 audioQuality = audioQuality,
                 spotifySpoof = AppSettings.discordSpotifySpoof.value,
+                artworkUrl = song.artworkAt(512),
+                button1Text = AppSettings.discordButton1Text.value,
+                button1Visible = AppSettings.discordButton1Visible.value,
+                button2Text = AppSettings.discordButton2Text.value,
+                button2Visible = AppSettings.discordButton2Visible.value,
             ).onFailure {
                 TrackLog.d("BitChord", "Discord presence failed: ${it.message}", about = song.videoId)
             }

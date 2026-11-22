@@ -117,7 +117,10 @@ object DiscordOAuth {
                 val result = JSONObject(responseBody)
                 val user = result.getJSONObject("user")
                 val session = result.getString("access_token")
-                if (session.isBlank()) error("The Discord session was empty")
+                val refreshToken = result.optString("refresh_token")
+                val expiresIn = result.optLong("expires_in", 0L)
+                if (session.isBlank()) error("The Discord access token was empty")
+                if (refreshToken.isBlank()) error("Discord did not return a refresh token")
                 val avatarHash = user.optString("avatar").takeIf { it.isNotBlank() }
                 val avatarUrl = avatarHash?.let { hash ->
                     val extension = if (hash.startsWith("a_")) "gif" else "png"
@@ -125,7 +128,7 @@ object DiscordOAuth {
                 }
 
                 withContext(Dispatchers.Main) {
-                    AppSettings.setDiscordSessionToken(session)
+                    AppSettings.setDiscordOAuthTokens(session, refreshToken, expiresIn)
                     AppSettings.setDiscordAccount(
                         user.optString("username"),
                         user.optString("global_name").ifBlank {

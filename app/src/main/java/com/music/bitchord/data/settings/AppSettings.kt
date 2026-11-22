@@ -682,8 +682,10 @@ object AppSettings {
 
     // ── Discord Rich Presence ───────────────────────────────────────────
 
-    /** Encrypted OAuth app session mirrored for the playback service. */
+    /** Encrypted Discord OAuth access token mirrored for the playback service. */
     val discordSessionToken = MutableStateFlow("")
+    val discordRefreshToken = MutableStateFlow("")
+    val discordTokenExpiresAt = MutableStateFlow(0L)
 
     /**
      * Who the token belongs to, cached at login. Kept so the settings screen
@@ -696,7 +698,7 @@ object AppSettings {
 
     val discordRpcEnabled = MutableStateFlow(true)
 
-    /** Render a Spotify-style Listening activity on the Zotify bot account. */
+    /** Render Spotify-style Listening activity on the connected user's profile. */
     val discordSpotifySpoof = MutableStateFlow(false)
 
     /** Put the track title on the bold profile line, in place of the artist. */
@@ -989,6 +991,8 @@ object AppSettings {
         )
         pinnedPlaylists.value = readPinnedPlaylists()
         discordSessionToken.value = authStore.discordSessionToken.orEmpty()
+        discordRefreshToken.value = authStore.discordRefreshToken.orEmpty()
+        discordTokenExpiresAt.value = authStore.discordTokenExpiresAt
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
         discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
         discordAvatar.value = prefs.getString(KEY_DISCORD_AVATAR, "").orEmpty()
@@ -1666,10 +1670,34 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, value).apply()
     }
 
-    /** Writes through to the encrypted store; pass "" to disconnect. */
+    /** Writes OAuth tokens through to encrypted storage; an empty access token disconnects. */
+    fun setDiscordOAuthTokens(accessToken: String, refreshToken: String, expiresInSeconds: Long) {
+        val expiresAt = if (accessToken.isBlank() || expiresInSeconds <= 0L) 0L
+            else System.currentTimeMillis() + expiresInSeconds * 1_000L
+        authStore.discordRefreshToken = refreshToken.ifBlank { null }
+        authStore.discordTokenExpiresAt = expiresAt
+        discordRefreshToken.value = refreshToken
+        discordTokenExpiresAt.value = expiresAt
+        authStore.discordSessionToken = accessToken.ifBlank { null }
+        discordSessionToken.value = accessToken
+    }
+
+    /** Compatibility setter; clearing the account also clears refresh credentials. */
     fun setDiscordSessionToken(value: String) {
-        discordSessionToken.value = value
-        authStore.discordSessionToken = value.ifEmpty { null }
+        if (value.isBlank()) {
+            setDiscordOAuthTokens("", "", 0L)
+        } else {
+            authStore.discordSessionToken = value
+            discordSessionToken.value = value
+        }
+    }
+
+    /** Persist a rotated token without restarting the live gateway collector. */
+    fun persistDiscordOAuthTokens(accessToken: String, refreshToken: String, expiresInSeconds: Long) {
+        authStore.discordSessionToken = accessToken.ifBlank { null }
+        authStore.discordRefreshToken = refreshToken.ifBlank { null }
+        authStore.discordTokenExpiresAt = if (accessToken.isBlank() || expiresInSeconds <= 0L) 0L
+            else System.currentTimeMillis() + expiresInSeconds * 1_000L
     }
 
     /** Stores a per-attempt PKCE verifier in encrypted preferences. */
