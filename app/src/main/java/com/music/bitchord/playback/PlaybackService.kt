@@ -7056,6 +7056,7 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.discordStatus,
                 AppSettings.discordActivityType,
                 AppSettings.discordActivityName,
+                AppSettings.discordSpotifySpoof,
                 AppSettings.playbackSpeed,
             ) { it.toList() }
                 .distinctUntilChanged()
