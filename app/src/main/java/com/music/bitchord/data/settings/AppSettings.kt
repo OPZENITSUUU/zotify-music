@@ -698,7 +698,7 @@ object AppSettings {
 
     val discordRpcEnabled = MutableStateFlow(true)
 
-    /** Render a Spotify-style Listening activity on the Zotify bot account. */
+    /** Render Spotify-style Listening activity on the connected user's profile. */
     val discordSpotifySpoof = MutableStateFlow(false)
 
     /** Put the track title on the bold profile line, in place of the artist. */
