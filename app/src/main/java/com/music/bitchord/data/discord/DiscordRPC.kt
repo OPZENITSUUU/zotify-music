@@ -151,6 +151,8 @@ class DiscordRPC(
                 doOutput = true
                 setRequestProperty("Authorization", "Bearer $accessToken")
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("User-Agent", SuperProperties.userAgent)
+                setRequestProperty("X-Super-Properties", SuperProperties.superPropertiesBase64)
             }
             val response: String
             try {
