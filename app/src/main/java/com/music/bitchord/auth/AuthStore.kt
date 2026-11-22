@@ -6,8 +6,8 @@ import android.content.SharedPreferences
 /**
  * Encrypted-at-rest storage for credentials.
  *
- * The YouTube Music session cookie and the Zotify bot-bridge OAuth session live
- * here. Discord passwords and user access tokens are never collected by the app.
+ * The YouTube Music session cookie and Discord user OAuth tokens live
+ * here. Discord passwords are never collected by the app; OAuth access and refresh tokens are encrypted here.
  * Both stored credentials are kept out of the plain preferences used for
  * ordinary settings.
  *
@@ -96,7 +96,7 @@ class AuthStore(context: Context) {
     val isSignedIn: Boolean
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
-    /** OAuth app session for the user-authorized Zotify bot connection. */
+    /** Discord user OAuth access token for the Social Layer gateway. */
     var discordSessionToken: String?
         get() = prefs.getString(KEY_DISCORD_SESSION_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).apply()
