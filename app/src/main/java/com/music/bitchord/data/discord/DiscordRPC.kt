@@ -27,6 +27,10 @@ class DiscordRPC(private val secret: String) {
             put("activityType", activityType)
             put("activityName", activityName)
             put("status", status)
+            put("useDetails", useDetails)
+            put("audioQuality", audioQuality ?: "")
+            put("positionMs", currentPlaybackTimeMillis.coerceAtLeast(0L))
+            put("durationMs", durationMillis.coerceAtLeast(0L))
         })
     }
 
@@ -38,6 +42,8 @@ class DiscordRPC(private val secret: String) {
             put("activityType", activityType)
             put("activityName", activityName)
             put("status", status)
+            put("positionMs", positionMs.coerceAtLeast(0L))
+            put("durationMs", durationMs.coerceAtLeast(0L))
         })
     }
 
