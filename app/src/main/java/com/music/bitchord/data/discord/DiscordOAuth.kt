@@ -45,17 +45,26 @@ object DiscordOAuth {
             context.startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (failure: Exception) {
             AppSettings.setPendingDiscordOAuthVerifier(null)
-            throw failure
+            Toast.makeText(
+                context,
+                "Couldn't open a browser for Discord authorization",
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
     fun consumeCallback(context: Context, intent: Intent?, scope: CoroutineScope) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val callback = intent.data ?: return
-        if (callback.scheme != "zotify" ||
-            callback.host != "discord" ||
-            callback.path != "/oauth/callback"
-        ) return
+        if (callback.scheme != "zotify" || callback.host != "discord") return
+
+        // A bare public install link bounces here first. Generate PKCE locally,
+        // store the verifier encrypted, then begin the ordinary OAuth request.
+        if (callback.path == "/oauth/start") {
+            start(context)
+            return
+        }
+        if (callback.path != "/oauth/callback") return
 
         val error = callback.getQueryParameter("error")
         if (!error.isNullOrBlank()) {
