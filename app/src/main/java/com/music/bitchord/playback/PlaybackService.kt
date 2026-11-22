@@ -7001,7 +7001,7 @@ class PlaybackService : MediaLibraryService() {
     private fun observeDiscord() {
         scope.launch {
             combine(
-                AppSettings.discordToken,
+                AppSettings.discordSessionToken,
                 AppSettings.discordRpcEnabled,
             ) { token, enabled -> token.takeIf { enabled && it.isNotBlank() } }
                 .distinctUntilChanged()
