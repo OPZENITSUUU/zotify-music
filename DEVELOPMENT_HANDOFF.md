@@ -1,12 +1,12 @@
 # Zotify Music Finalization Handoff
 
-Last updated: 2026-11-22 10:25 IST
+Last updated: 2026-11-22 10:30 IST
 
 ## Repository and pull-request state
 
 Repository: [OPZENITSUUU/zotify-music](https://github.com/OPZENITSUUU/zotify-music). Local branch: `fix/finalization-audit-2026-11-18`; intended PR #1 head branch: `fix/ci-and-docs-2026-11-15`.
 
-PR #1 remains open; no PR was merged, no tag was created, and no release was published. A local `git merge --no-commit --no-ff origin/main` is still active (`MERGE_HEAD` `5f7031f006265aa7be2a49ea78585435d5f21e36`). All merge conflicts are resolved and no unresolved paths remain. The PR's phone metadata v1.0.12/code 43 was retained. Main's appearance, localization, and Discord-bot changes were kept. No merge commit or push has yet been made.
+PR #1 remains open; no PR was merged, no tag was created, and no release was published. The local merge of `origin/main` (`5f7031f006265aa7be2a49ea78585435d5f21e36`) was conflict-resolved and committed as `dc33a7f`, then pushed only to PR #1's existing head branch `fix/ci-and-docs-2026-11-15` to trigger checks. There are no unresolved paths. The PR's phone metadata v1.0.12/code 43 was retained. Main's appearance, localization, and Discord-bot changes were kept. This was not a merge of PR #1 into `main`.
 
 ## Compatibility and signing evidence
 
@@ -29,7 +29,7 @@ The regular new-release workflow now writes the existing Last.fm values to a per
 
 ## Verification evidence
 
-For the current uncommitted workspace:
+For PR head `dc33a7f` and the locally generated `FINALIZATION.patch`:
 
 - Release metadata, Desktop asset-helper, and historical backfill regression suite: **38 tests passed** (`python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v`). This includes manifest tampering/schema tests, exact confirmation, disabled release gate, streamed remote digest fallback, and refusal to upload over a conflicting asset.
 - Workflow syntax: all **11** `.github/workflows/*.yml` files parsed using PyYAML; `bash -n` passed for **46** Bash workflow run blocks. `actionlint` and `shellcheck` are unavailable in this sandbox, and PowerShell blocks were not independently parsed here.
@@ -38,12 +38,13 @@ For the current uncommitted workspace:
 - Real Linux installer verification for v1.0.5 succeeded: the DEB and RPM were built, and both package managers reported version `1.0.5`. CMake was unavailable, so the optional Desktop native analyzer was skipped.
 - A local Android `:app:testDevDebugUnitTest` attempt stopped during Gradle configuration before tests ran: the sandbox's partial `/usr/lib/android-sdk` does not have the NDK license accepted (`ndk;27.0.12077973`). This is an environment prerequisite failure, not a passing test. SDK-dependent Android/TV builds and production-signature verification still require GitHub Actions.
 - Previously, 7/7 required PR checks passed for commit `7bea77e099c0a5905d7905f9029a9b434f832836`; that result is historical and does **not** establish CI success for the current merge/workflow changes.
+- GitHub Actions checks were triggered by the push to PR head `dc33a7f`; their results are pending and must be checked before any PR merge decision.
 
 ## Remaining blockers and exact next actions
 
-1. Finish the read-only merge/code review, run final `git diff --check`, remove generated caches, regenerate and validate `FINALIZATION.patch`, and retain the no-commit merge state until ready.
-2. If GitHub permissions permit, update only PR #1's head branch and run its full required checks. Do not merge the PR. The current workflow changes have not yet run on GitHub Actions.
+1. Review the current GitHub Actions run statuses for PR head `dc33a7f`; fix any failures and wait for every required check to pass. Do not merge PR #1.
+2. The `FINALIZATION.patch` was regenerated against `origin/main`; `git apply --check` passed on a clean archive of that base. Final whitespace/conflict checks passed, and no credential or local-properties files are staged.
 3. Through an authorized, secure mechanism, confirm the existing production signing secrets are available to the TV build job without exposing their values. Do not replace the keystore or weaken the certificate fingerprint check. If secret configuration remains unavailable, TV production APK builds stay blocked.
-4. Once the required PR checks and production signing verification succeed, run the build-only historical workflow for each tag. Review every exact filename and digest in each generated manifest.
+4. After the required PR checks and production signing verification succeed, the build-only workflow can be run once present on the repository's default branch. Review every exact filename and digest in each generated manifest. This workflow has not yet run; do not merge solely to bypass a pending check.
 5. Before any public backfill, obtain explicit authorization for the exact manifest and tag. Keep `RELEASES_ENABLED` disabled until that authorized publication action. The separate publisher must preserve all current release notes/assets and abort on any collision.
 6. Do not merge PR #1, create tags, replace phone APKs, or publish assets without the required checks and explicit authorization.
