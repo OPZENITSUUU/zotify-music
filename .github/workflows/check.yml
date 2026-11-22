@@ -162,7 +162,7 @@ jobs:
       - run: chmod +x gradlew
 
       - name: Tests
-        run: ./gradlew testDevDebugUnitTest
+        run: ./gradlew testDevDebugUnitTest testProdDebugUnitTest
 
       - name: Build the dev APK
         run: ./gradlew assembleDevDebug
@@ -172,6 +172,69 @@ jobs:
         with:
           name: zotify-dev-debug
           path: app/build/outputs/apk/dev/debug/*.apk
+
+      # Build a real update for the installed production app on main pushes.
+      # This is an Actions artifact only; it does not create or publish a GitHub Release.
+      - name: Configure production signing
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Required Actions secret is missing or empty: $name"
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > zotify-release.jks
+          keytool -list -keystore zotify-release.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          keytool -exportcert -alias "$KEY_ALIAS" -keystore zotify-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" -file "$RUNNER_TEMP/zotify-release.der" >/dev/null
+          certificate_sha256="$(sha256sum "$RUNNER_TEMP/zotify-release.der" | awk '{print toupper($1)}')"
+          expected_sha256="EAD01DEB09889B57D7C9E16E52811CE02E85754BD6C19A483AAF772A59C7EE30"
+          if [[ "$certificate_sha256" != "$expected_sha256" ]]; then
+            echo "::error::Production signing certificate fingerprint mismatch"
+            exit 1
+          fi
+          {
+            printf 'storeFile=zotify-release.jks\\n'
+            printf 'storePassword=%s\\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\\n' "$KEY_PASSWORD"
+          } > keystore.properties
+          chmod 600 zotify-release.jks keystore.properties
+
+      - name: Build signed production APKs
+        if: github.event_name == 'push'
+        run: ./gradlew assembleProdRelease
+
+      - name: Verify production APK identity and signature
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK path is unavailable}}"
+          build_tools="$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          for apk in app/build/outputs/apk/prod/release/*.apk; do
+            test -s "$apk"
+            "$build_tools/aapt" dump badging "$apk" | grep -F "package: name='com.zotifymusic.player'"
+            "$build_tools/zipalign" -c 4 "$apk"
+            "$build_tools/apksigner" verify --verbose --print-certs "$apk" | grep -F "EAD01DEB09889B57D7C9E16E52811CE02E85754BD6C19A483AAF772A59C7EE30"
+          done
+
+      - name: Upload signed production update APKs
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: zotify-production-update-signed
+          path: app/build/outputs/apk/prod/release/*.apk
+          if-no-files-found: error
 
       - name: Upload test reports
         if: failure()
