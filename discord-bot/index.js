@@ -31,6 +31,7 @@ let ready = false;
 let activePresenceOwner = null;
 let activePresenceAt = 0;
 const PRESENCE_LEASE_MS = 90_000;
+const oauthTickets = new Map();
 
 function signPayload(payload) {
   if (!SESSION_SECRET) throw new Error("Discord session signing is not configured");
@@ -176,11 +177,14 @@ app.get(CALLBACK_PATH, async (req, res) => {
       return failToApp(res, "invalid_profile");
     }
 
-    // The signed ticket carries its PKCE challenge and survives a Render restart.
-    // The one-time property is enforced by the app's locally-held verifier and
-    // the 60-second expiry; the ticket itself contains no Discord OAuth token.
-    const ticket = signPayload({
-      kind: "discord_ticket",
+    // Keep OAuth credentials server-side. The app receives only a random,
+    // one-time ticket and must prove its locally-held PKCE verifier to exchange it.
+    const now = Date.now();
+    for (const [key, value] of oauthTickets) {
+      if (value.expiresAt <= now) oauthTickets.delete(key);
+    }
+    const ticket = crypto.randomBytes(32).toString("base64url");
+    oauthTickets.set(ticket, {
       user: {
         id: user.id,
         username: user.username,
@@ -191,8 +195,7 @@ app.get(CALLBACK_PATH, async (req, res) => {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token || "",
       expiresIn: Number(tokenData.expires_in) || 0,
-      exp: Math.floor(Date.now() / 1000) + TICKET_TTL_SECONDS,
-      nonce: crypto.randomBytes(16).toString("base64url")
+      expiresAt: now + TICKET_TTL_SECONDS * 1000
     });
     return res.redirect(302, MOBILE_REDIRECT_URI + "?ticket=" + encodeURIComponent(ticket));
   } catch (error) {
@@ -203,9 +206,9 @@ app.get(CALLBACK_PATH, async (req, res) => {
 
 app.post("/auth/discord/exchange", (req, res) => {
   const ticket = typeof req.body?.ticket === "string" ? req.body.ticket : "";
-  const entry = verifyPayload(ticket);
-  if (!entry || entry.kind !== "discord_ticket" || !entry.user ||
-      typeof entry.user.id !== "string" || typeof entry.challenge !== "string") {
+  const entry = oauthTickets.get(ticket);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    oauthTickets.delete(ticket);
     return res.status(401).json({ error: "invalid_or_expired_ticket" });
   }
 
@@ -219,6 +222,9 @@ app.post("/auth/discord/exchange", (req, res) => {
   if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
     return res.status(401).json({ error: "invalid_pkce_verifier" });
   }
+  // Consume only after the verifier has been checked; a bad attempt cannot
+  // burn the legitimate app's ticket, while a successful exchange is one-time.
+  oauthTickets.delete(ticket);
 
   return res.json({
     access_token: entry.accessToken,
