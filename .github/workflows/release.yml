@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*"
-    branches:
-      - "feat/official-discord-bot"
   workflow_dispatch:
     inputs:
       release_tag:
@@ -35,7 +33,7 @@ jobs:
         id: release_validation
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.8') || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_PUSHED_TAG: ${{ github.event.forced }}
         run: |
@@ -208,7 +206,7 @@ jobs:
       - name: Verify package, version, alignment, and signature
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.8') || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           EXPECTED_VERSION_CODE: ${{ steps.release_validation.outputs.version_code }}
         run: |
           set -euo pipefail
@@ -247,9 +245,9 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.8') || github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          name: Zotify Music ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.8') || github.ref_name }}
+          name: Zotify Music ${{ inputs.release_tag || github.ref_name }}
           draft: false
           make_latest: true
           fail_on_unmatched_files: true
@@ -258,7 +256,7 @@ jobs:
             dist/Zotify.Music_arm64-v8a.apk
             dist/Zotify.Music_armeabi-v7a.apk
           body: |
-            ## Zotify Music ${{ inputs.release_tag || (github.ref_type == 'branch' && 'v1.0.8') || github.ref_name }}
+            ## Zotify Music ${{ inputs.release_tag || github.ref_name }}
 
             Android version code: ${{ steps.release_validation.outputs.version_code }}
 

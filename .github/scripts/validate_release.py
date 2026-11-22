@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\.(0|[1-9][0-9]*))?$")
 CODE_PATTERN = re.compile(r'^\s*extra\["bitchordVersionCode"\]\s*=\s*(\d+)\s*$', re.MULTILINE)
 NAME_PATTERN = re.compile(r'^\s*extra\["bitchordVersionName"\]\s*=\s*"([^"]+)"\s*$', re.MULTILINE)
 
@@ -31,8 +31,9 @@ class ReleaseVersion:
 def parse_tag(tag: str) -> tuple[int, int, int]:
     match = TAG_PATTERN.fullmatch(tag)
     if not match:
-        raise ValidationError(f"Invalid release tag {tag!r}; expected vMAJOR.MINOR.PATCH")
-    return tuple(int(part) for part in match.groups())
+        raise ValidationError(f"Invalid release tag {tag!r}; expected vMAJOR.MINOR or vMAJOR.MINOR.PATCH")
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch or 0)
 
 
 def extract_gradle_version(source: str) -> tuple[str, int]:

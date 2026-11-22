@@ -24,9 +24,10 @@ def gradle_source(name: str = "1.0.11", code: int = 42) -> str:
 class ReleaseValidatorTest(unittest.TestCase):
     def test_accepts_plain_semver_release_tag(self) -> None:
         self.assertEqual((1, 0, 11), parse_tag("v1.0.11"))
+        self.assertEqual((1, 10, 0), parse_tag("v1.10"))
 
     def test_rejects_non_release_tag_syntax(self) -> None:
-        for tag in ("1.0.11", "v1.0", "v1.0.11-beta1", "v01.0.11"):
+        for tag in ("1.0.11", "v1.0.11-beta1", "v01.0.11"):
             with self.subTest(tag=tag), self.assertRaises(ValidationError):
                 parse_tag(tag)
 
@@ -71,7 +72,7 @@ class ReleaseValidatorTest(unittest.TestCase):
             subprocess.run(["git", "tag", "v1.0.6"], cwd=root, check=True)
 
             # Simulate a published tag accidentally pointing at the old Gradle version.
-            gradle.write_text(gradle_source(name="1.0.6", code=6), encoding="utf-8")
+            gradle.write_text(gradle_source(name="1.0.5", code=5), encoding="utf-8")
             subprocess.run(["git", "add", "build.gradle.kts"], cwd=root, check=True)
             subprocess.run(["git", "commit", "-qm", "bad tag target"], cwd=root, check=True)
             subprocess.run(["git", "tag", "v1.0.7"], cwd=root, check=True)
