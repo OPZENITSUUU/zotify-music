@@ -25,9 +25,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Write local.properties
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
-          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=$LASTFM_API_KEY" "LASTFM_SECRET=$LASTFM_SECRET" > local.properties
 
       - run: chmod +x gradlew
 
@@ -67,10 +70,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Write local.properties
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         shell: bash
         run: |
-          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=$LASTFM_API_KEY" "LASTFM_SECRET=$LASTFM_SECRET" > local.properties
 
       - name: CMake version
         run: cmake --version
@@ -114,9 +120,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Write local.properties
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
-          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=$LASTFM_API_KEY" "LASTFM_SECRET=$LASTFM_SECRET" > local.properties
 
       - run: chmod +x gradlew
 
@@ -155,9 +164,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Write local.properties
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
-          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=$LASTFM_API_KEY" "LASTFM_SECRET=$LASTFM_SECRET" > local.properties
 
       - run: chmod +x gradlew
 
@@ -197,3 +209,67 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
+
+  discord-bot:
+    name: Discord bot · Node 20
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: discord-bot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install service dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Check JavaScript syntax
+        run: node --check index.js
+
+      - name: Smoke-test OAuth routes without real credentials
+        shell: bash
+        env:
+          DISCORD_CLIENT_SECRET: test-client-secret
+          DISCORD_SESSION_SECRET: test-session-secret-with-at-least-32-bytes
+          PUBLIC_BASE_URL: http://127.0.0.1:18181
+          PORT: "18181"
+        run: |
+          set -euo pipefail
+          node index.js > "$RUNNER_TEMP/zotify-discord-bot.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in $(seq 1 20); do
+            if curl --silent --fail http://127.0.0.1:18181/ >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          [[ "$ready" == true ]] || { cat "$RUNNER_TEMP/zotify-discord-bot.log"; exit 1; }
+
+          valid_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --get --data-urlencode 'redirect_uri=zotify://discord/oauth/callback' \
+            http://127.0.0.1:18181/auth/discord)"
+          [[ "$valid_status" == "302" ]] || { echo "Expected OAuth start to return 302, got $valid_status"; exit 1; }
+
+          invalid_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --get --data-urlencode 'redirect_uri=https://attacker.example/callback' \
+            http://127.0.0.1:18181/auth/discord)"
+          [[ "$invalid_status" == "400" ]] || { echo "Expected unapproved redirect URI to return 400, got $invalid_status"; exit 1; }
+
+          ticket_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data '{"ticket":"not-a-real-ticket"}' \
+            http://127.0.0.1:18181/auth/discord/exchange)"
+          [[ "$ticket_status" == "401" ]] || { echo "Expected invalid ticket to return 401, got $ticket_status"; exit 1; }
+
+          presence_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data '{"title":"Test track"}' \
+            http://127.0.0.1:18181/presence)"
+          [[ "$presence_status" == "401" ]] || { echo "Expected unauthenticated presence to return 401, got $presence_status"; exit 1; }

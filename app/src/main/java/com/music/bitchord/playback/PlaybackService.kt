@@ -923,7 +923,7 @@ class PlaybackService : MediaLibraryService() {
                 pushDiscordPresence(exoPlayer)
                 startLyricsTicker()
             } else {
-                clearDiscordPresence()
+                clearDiscordPresence(exoPlayer)
                 stopLyricsTicker()
             }
         }
@@ -7001,7 +7001,7 @@ class PlaybackService : MediaLibraryService() {
     private fun observeDiscord() {
         scope.launch {
             combine(
-                AppSettings.discordToken,
+                AppSettings.discordSessionToken,
                 AppSettings.discordRpcEnabled,
             ) { token, enabled -> token.takeIf { enabled && it.isNotBlank() } }
                 .distinctUntilChanged()
@@ -7035,7 +7035,7 @@ class PlaybackService : MediaLibraryService() {
                     discordRpc = null
 
                     if (token == null) return@collectLatest
-                    discordRpc = DiscordRPC(this@PlaybackService, token)
+                    discordRpc = DiscordRPC(token)
                     // A presence that only appeared at the next track change
                     // would make turning the switch on look like it had done
                     // nothing for the length of a song.
@@ -7164,16 +7164,32 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Takes the presence down but leaves the socket up, so resuming doesn't pay
-     * for a reconnect. Discord clears the card on an activity-less presence.
+     * Pauses the bot activity on pause and clears it when playback actually stops.
      */
-    private fun clearDiscordPresence() {
+    private fun clearDiscordPresence(exoPlayer: ExoPlayer) {
+        val song = exoPlayer.currentMediaItem?.toSong()
+        val stopped = song == null ||
+            exoPlayer.playbackState == Player.STATE_IDLE ||
+            exoPlayer.playbackState == Player.STATE_ENDED
         val rpc = discordRpc ?: return
         if (!discordPresenceUp) return
-        discordPresenceUp = false
         discordUpdateJob?.cancel()
+        discordPresenceUp = !stopped
         discordUpdateJob = scope.launch(Dispatchers.IO) {
-            runCatching { rpc.close() }
+            if (stopped) {
+                runCatching { rpc.close() }
+            } else {
+                runCatching {
+                    rpc.pause(
+                        song!!,
+                        exoPlayer.currentPosition,
+                        exoPlayer.duration,
+                        AppSettings.discordActivityName.value.ifBlank { "Zotify Music" },
+                        AppSettings.discordActivityType.value,
+                        AppSettings.discordStatus.value,
+                    )
+                }
+            }
         }
     }
 
