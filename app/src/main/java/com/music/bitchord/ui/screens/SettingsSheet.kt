@@ -398,6 +398,7 @@ fun SettingsScreen(
     }
     var showListenBrainzTokenDialog by remember { mutableStateOf(false) }
     var showLastfmLoginDialog by remember { mutableStateOf(false) }
+    var showWhatsNewDialog by rememberSaveable { mutableStateOf(false) }
     var showOwnerContactDialog by rememberSaveable { mutableStateOf(false) }
     var ownerContactType by rememberSaveable { mutableStateOf(0) }
     var ownerContactMessage by rememberSaveable { mutableStateOf("") }
@@ -1438,6 +1439,17 @@ fun SettingsScreen(
         }
 
         SearchableSettingsGroup(search, category = SettingsCategory.MORE) {
+            row(stringResource(R.string.whats_new), "release notes", "changelog", "version 1.10", "new features", "highlights") {
+                SettingsRow(
+                    icon = Icons.AutoMirrored.Rounded.Notes,
+                    title = stringResource(R.string.whats_new),
+                    subtitle = stringResource(R.string.whats_new_subtitle),
+                    onClick = { showWhatsNewDialog = true },
+                )
+            }
+        }
+
+        SearchableSettingsGroup(search, category = SettingsCategory.MORE) {
             row(stringResource(R.string.owner_contact), "owner", "contact", "bug report", "feedback", "feature request", "discord", "opzenitsu_69") {
                 SettingsRow(
                     icon = Icons.Rounded.Person,
@@ -1786,6 +1798,34 @@ fun SettingsScreen(
                     .padding(top = 54.dp, bottom = 28.dp),
             )
         }
+    }
+
+    if (showWhatsNewDialog) {
+        AlertDialog(
+            onDismissRequest = { showWhatsNewDialog = false },
+            title = { Text(stringResource(R.string.whats_new_title)) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 480.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    context.resources.getStringArray(R.array.whats_new_v1_10).forEach { item ->
+                        Text(
+                            text = "• $item",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showWhatsNewDialog = false }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
     }
 
     if (showOwnerContactDialog) {
