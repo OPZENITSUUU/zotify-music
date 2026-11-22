@@ -12,6 +12,7 @@ const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://zotify-discord-
 const MOBILE_REDIRECT_URI = process.env.DISCORD_MOBILE_REDIRECT_URI || "zotify://discord/oauth/callback";
 const CALLBACK_PATH = "/auth/discord/callback";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+const STATE_TTL_MS = 10 * 60 * 1000;
 const TICKET_TTL_MS = 60 * 1000;
 const MAX_PENDING_AUTH = 2048;
 
@@ -100,7 +101,7 @@ app.get("/auth/discord", (req, res) => {
   if (states.size >= MAX_PENDING_AUTH) return res.status(503).json({ error: "authorization_busy" });
 
   const state = crypto.randomBytes(24).toString("base64url");
-  states.set(state, Date.now() + TICKET_TTL_MS);
+  states.set(state, Date.now() + STATE_TTL_MS);
   const callbackUrl = PUBLIC_BASE_URL + CALLBACK_PATH;
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
