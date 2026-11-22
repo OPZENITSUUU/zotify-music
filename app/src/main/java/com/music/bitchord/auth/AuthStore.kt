@@ -101,6 +101,16 @@ class AuthStore(context: Context) {
         get() = prefs.getString(KEY_DISCORD_SESSION_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).apply()
 
+    /** Discord OAuth refresh token, encrypted at rest and rotated on refresh. */
+    var discordRefreshToken: String?
+        get() = prefs.getString(KEY_DISCORD_REFRESH_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_DISCORD_REFRESH_TOKEN, value).apply()
+
+    /** Unix epoch milliseconds when the current Discord access token expires. */
+    var discordTokenExpiresAt: Long
+        get() = prefs.getLong(KEY_DISCORD_TOKEN_EXPIRES_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_DISCORD_TOKEN_EXPIRES_AT, value).apply()
+
     /** PKCE verifier for the one OAuth flow currently waiting on the browser. */
     var discordOAuthCodeVerifier: String?
         get() = prefs.getString(KEY_DISCORD_OAUTH_CODE_VERIFIER, null)
@@ -237,6 +247,8 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_DISCORD_SESSION_TOKEN = "discord_session_token"
+        private const val KEY_DISCORD_REFRESH_TOKEN = "discord_refresh_token"
+        private const val KEY_DISCORD_TOKEN_EXPIRES_AT = "discord_token_expires_at"
         private const val KEY_DISCORD_OAUTH_CODE_VERIFIER = "discord_oauth_code_verifier"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
