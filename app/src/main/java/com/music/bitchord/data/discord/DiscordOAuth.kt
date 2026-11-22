@@ -45,7 +45,11 @@ object DiscordOAuth {
             context.startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (failure: Exception) {
             AppSettings.setPendingDiscordOAuthVerifier(null)
-            throw failure
+            Toast.makeText(
+                context,
+                "Couldn't open a browser for Discord authorization",
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
