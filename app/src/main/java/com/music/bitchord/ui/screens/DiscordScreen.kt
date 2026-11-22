@@ -89,7 +89,7 @@ enum class DiscordActivityKind(val value: String, val verb: String, val label: S
  * rendered by the activity, above the tab bar and mini player, rather than
  * inside the scrolling screen where a full-screen scrim would be trapped.
  */
-enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME }
+enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME, BUTTON_1_TEXT, BUTTON_2_TEXT }
 
 private fun statusOf(value: String) =
     DiscordPresenceStatus.entries.firstOrNull { it.value == value } ?: DiscordPresenceStatus.ONLINE
@@ -168,6 +168,10 @@ fun DiscordScreen(
     val status by AppSettings.discordStatus.collectAsStateWithLifecycle()
     val activityType by AppSettings.discordActivityType.collectAsStateWithLifecycle()
     val activityName by AppSettings.discordActivityName.collectAsStateWithLifecycle()
+    val button1Text by AppSettings.discordButton1Text.collectAsStateWithLifecycle()
+    val button1Visible by AppSettings.discordButton1Visible.collectAsStateWithLifecycle()
+    val button2Text by AppSettings.discordButton2Text.collectAsStateWithLifecycle()
+    val button2Visible by AppSettings.discordButton2Visible.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
     val connected = sessionToken.isNotEmpty()
@@ -203,7 +207,7 @@ fun DiscordScreen(
                 SettingsRow(
                     icon = discordIcon,
                     title = "Connect with Discord",
-                    subtitle = "Authorize the official Zotify bot",
+                    subtitle = "Authorize your Discord account",
                     onClick = onOpenLogin,
                 )
             }
@@ -211,7 +215,7 @@ fun DiscordScreen(
 
         SettingsGroup(
             header = stringResource(R.string.rich_presence),
-            footer = "Activity is published by the Zotify Music bot, not as your personal Discord status. Discord bots support text-only activity.",
+            footer = "Your activity appears on your personal Discord profile. Zotify uses Discord OAuth and never asks for your password.",
         ) {
             SettingsRow(
                 icon = discordIcon,
@@ -273,7 +277,7 @@ fun DiscordScreen(
             SettingsRow(
                 icon = Icons.Rounded.SmartButton,
                 title = "Spotify-style presence",
-                subtitle = "Show ‘Listening to Spotify’ with the current track on the Zotify bot profile",
+                subtitle = "Show a Spotify-style listening card on your profile (not Spotify-verified).",
                 enabled = connected && rpcEnabled,
                 trailing = {
                     Switch(
@@ -314,8 +318,40 @@ fun DiscordScreen(
                         onClick = { onOpenDialog(DiscordDialog.ACTIVITY_NAME) },
                     )
                 }
-
-
+                SettingsGroup(
+                    header = "Action buttons",
+                    footer = "Buttons open the current track in YouTube Music or Spotify. You can change their labels and turn either one off.",
+                ) {
+                    SettingsRow(
+                        icon = Icons.Rounded.SmartButton,
+                        title = "Button 1",
+                        subtitle = button1Text.ifBlank { "YouTube Music" },
+                        enabled = connected && rpcEnabled,
+                        trailing = {
+                            Switch(
+                                checked = button1Visible,
+                                onCheckedChange = AppSettings::setDiscordButton1Visible,
+                                enabled = connected && rpcEnabled,
+                            )
+                        },
+                        onClick = { onOpenDialog(DiscordDialog.BUTTON_1_TEXT) },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.SmartButton,
+                        title = "Button 2",
+                        subtitle = button2Text.ifBlank { "Spotify" },
+                        enabled = connected && rpcEnabled,
+                        trailing = {
+                            Switch(
+                                checked = button2Visible,
+                                onCheckedChange = AppSettings::setDiscordButton2Visible,
+                                enabled = connected && rpcEnabled,
+                            )
+                        },
+                        onClick = { onOpenDialog(DiscordDialog.BUTTON_2_TEXT) },
+                    )
+                }
             }
         }
 
@@ -711,7 +747,41 @@ fun DiscordDialogHost(
             )
         }
 
+        DiscordDialog.BUTTON_1_TEXT -> {
+            val current by AppSettings.discordButton1Text.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Button 1 label",
+                message = "This button opens the current track in YouTube Music.",
+                placeholder = "YouTube Music",
+                value = input,
+                onValueChange = { input = it },
+                onSave = {
+                    AppSettings.setDiscordButton1Text(input.trim().take(32))
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
 
+        DiscordDialog.BUTTON_2_TEXT -> {
+            val current by AppSettings.discordButton2Text.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Button 2 label",
+                message = "This button opens the current track in Spotify.",
+                placeholder = "Spotify",
+                value = input,
+                onValueChange = { input = it },
+                onSave = {
+                    AppSettings.setDiscordButton2Text(input.trim().take(32))
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
     }
 }
 
