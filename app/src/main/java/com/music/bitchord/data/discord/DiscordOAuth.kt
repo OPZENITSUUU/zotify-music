@@ -82,6 +82,11 @@ object DiscordOAuth {
                 val user = result.getJSONObject("user")
                 val session = result.getString("access_token")
                 if (session.isBlank()) error("The Discord session was empty")
+                val avatarHash = user.optString("avatar").takeIf { it.isNotBlank() }
+                val avatarUrl = avatarHash?.let { hash ->
+                    val extension = if (hash.startsWith("a_")) "gif" else "png"
+                    "https://cdn.discordapp.com/avatars/${user.getString("id")}/$hash.$extension?size=128"
+                }
 
                 withContext(Dispatchers.Main) {
                     AppSettings.setDiscordSessionToken(session)
@@ -90,7 +95,7 @@ object DiscordOAuth {
                         user.optString("global_name").ifBlank {
                             user.optString("username")
                         },
-                        user.optString("avatar").takeIf { it.isNotBlank() },
+                        avatarUrl,
                     )
                     Toast.makeText(context, "Discord connected", Toast.LENGTH_SHORT).show()
                 }
