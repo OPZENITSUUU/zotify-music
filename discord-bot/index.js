@@ -101,7 +101,9 @@ app.get("/auth/discord", (req, res) => {
   const challengeMethod = typeof req.query.code_challenge_method === "string"
     ? req.query.code_challenge_method : "";
   if (challengeMethod !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
-    return res.status(400).json({ error: "pkce_required" });
+    // The public install link starts the app first. The app creates and stores
+    // its PKCE verifier, then re-enters this route with the S256 challenge.
+    return res.redirect(302, "zotify://discord/oauth/start");
   }
 
   cleanupExpiredAuth();
