@@ -138,7 +138,7 @@ app.get("/auth/discord/callback", async (req, res) => {
     prune(oauthTickets);
     const ticket = randomToken(32);
     oauthTickets.set(ticket, {
-      user: { id: user.id, username: user.username, global_name: user.global_name || user.username },
+      user: { id: user.id, username: user.username, global_name: user.global_name || user.username, avatar: user.avatar || null },
       challenge: state.challenge,
       expiresAt: Date.now() + 2 * 60 * 1000,
     });
