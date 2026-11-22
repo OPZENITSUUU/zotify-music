@@ -1,0 +1,204 @@
+name: Desktop Release Downloads
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to backfill, or 'all' for every release"
+        required: true
+        default: "all"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-assets-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release-tags:
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+    name: Resolve published release tags
+    runs-on: ubuntu-22.04
+    outputs:
+      tags: ${{ steps.resolve.outputs.tags }}
+    steps:
+      - name: Resolve tags
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_TAG" != "all" ]]; then
+            [[ "$INPUT_TAG" =~ $pattern ]] || { echo "::error::Invalid release tag"; exit 1; }
+            gh release view "$INPUT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+            tags_json="$(jq -cn --arg tag "$INPUT_TAG" '[$tag]')"
+          elif [[ "$REF_TYPE" == "tag" ]]; then
+            [[ "$REF_NAME" =~ $pattern ]] || { echo "::error::Unsupported tag"; exit 1; }
+            tags_json="$(jq -cn --arg tag "$REF_NAME" '[$tag]')"
+          else
+            tags_json="$(gh release list --limit 1000 --json tagName --repo "$GITHUB_REPOSITORY" \
+              | jq -c '[.[].tagName | select(test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))] | unique')"
+          fi
+          [[ "$tags_json" != "[]" ]] || { echo "::error::No published releases found"; exit 1; }
+          echo "Resolved tags: $tags_json"
+          echo "tags=$tags_json" >> "$GITHUB_OUTPUT"
+
+  desktop:
+    name: Desktop ${{ matrix.platform }} · ${{ matrix.tag }}
+    needs: release-tags
+    runs-on: ${{ matrix.platform == 'linux' && 'ubuntu-22.04' || matrix.platform == 'windows' && 'windows-latest' || 'macos-latest' }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.release-tags.outputs.tags) }}
+        platform: [linux, windows, macos]
+    steps:
+      - name: Check out exact release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.tag }}
+          fetch-depth: 1
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build desktop app image (Linux/macOS)
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          TAG: ${{ matrix.tag }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :desktopApp:createDistributable "-Pbitchord.version=$TAG"
+
+      - name: Build desktop app image (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          TAG: ${{ matrix.tag }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          .\gradlew.bat :desktopApp:createDistributable "-Pbitchord.version=$env:TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Desktop image build failed." }
+
+      - name: Verify and archive Linux app
+        id: archive-linux
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          TAG: ${{ matrix.tag }}
+        run: |
+          set -euo pipefail
+          app_dir="desktopApp/build/compose/binaries/main/app/BitChord"
+          test -d "$app_dir"
+          jar="$(find "$app_dir" -type f -name 'desktopApp*.jar' -print -quit)"
+          test -n "$jar"
+          entries="$(jar tf "$jar")"
+          grep -q '^models/.*\.onnx$' <<< "$entries"
+          grep -q '^native/libbitchord_analysis\.so$' <<< "$entries"
+          asset="ZotifyMusic-$TAG-linux-x64.tar.gz"
+          tar -czf "$asset" -C "$(dirname "$app_dir")" "$(basename "$app_dir")"
+          tar -tzf "$asset" >/dev/null
+          test -s "$asset"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - name: Verify and archive Windows app
+        id: archive-windows
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          TAG: ${{ matrix.tag }}
+        run: |
+          $appDir = Join-Path $env:GITHUB_WORKSPACE "desktopApp/build/compose/binaries/main/app/BitChord"
+          if (-not (Test-Path $appDir -PathType Container)) { throw "Windows app image is missing." }
+          $jar = Get-ChildItem -Path $appDir -Filter "desktopApp*.jar" -Recurse | Select-Object -First 1
+          if ($null -eq $jar) { throw "Desktop application jar is missing." }
+          $entries = & jar tf $jar.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect desktop application jar." }
+          if (-not ($entries -match '^models/.+\.onnx$')) { throw "Automix models are missing." }
+          if ($entries -notcontains 'native/bitchord_analysis.dll') { throw "Windows analyser is missing." }
+          if ($entries -notcontains 'native/bitchord_smtc.dll') { throw "Windows media-control bridge is missing." }
+          $asset = "ZotifyMusic-$env:TAG-windows-x64.zip"
+          Compress-Archive -Path $appDir -DestinationPath $asset -Force
+          if (-not (Test-Path $asset) -or (Get-Item $asset).Length -le 0) { throw "Windows archive is empty." }
+          "asset=$asset" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Verify and archive macOS app
+        id: archive-macos
+        if: matrix.platform == 'macos'
+        shell: bash
+        env:
+          TAG: ${{ matrix.tag }}
+        run: |
+          set -euo pipefail
+          app_dir="desktopApp/build/compose/binaries/main/app/BitChord.app"
+          test -d "$app_dir"
+          jar="$(find "$app_dir" -type f -name 'desktopApp*.jar' -print -quit)"
+          test -n "$jar"
+          entries="$(jar tf "$jar")"
+          grep -q '^models/.*\.onnx$' <<< "$entries"
+          arch="$(tr '[:upper:]' '[:lower:]' <<< "$RUNNER_ARCH")"
+          asset="ZotifyMusic-$TAG-macos-$arch.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app_dir" "$asset"
+          unzip -tq "$asset"
+          test -s "$asset"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for release and upload desktop asset (Linux/macOS)
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ matrix.tag }}
+          ASSET: ${{ matrix.platform == 'linux' && steps.archive-linux.outputs.asset || steps.archive-macos.outputs.asset }}
+        run: |
+          set -euo pipefail
+          ready=false
+          for attempt in $(seq 1 60); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 30
+          done
+          [[ "$ready" == true ]] || { echo "::error::Release was not created"; exit 1; }
+          gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Wait for release and upload desktop asset (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ matrix.tag }}
+          ASSET: ${{ steps.archive-windows.outputs.asset }}
+        run: |
+          $ready = $false
+          for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            gh release view $env:TAG --repo $env:GITHUB_REPOSITORY 1>$null 2>$null
+            if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+            Start-Sleep -Seconds 30
+          }
+          if (-not $ready) { throw "Release was not created." }
+          gh release upload $env:TAG $env:ASSET --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Windows upload failed." }
+
