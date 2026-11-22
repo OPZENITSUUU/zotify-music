@@ -7056,6 +7056,7 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.discordStatus,
                 AppSettings.discordActivityType,
                 AppSettings.discordActivityName,
+                AppSettings.discordSpotifySpoof,
                 AppSettings.playbackSpeed,
             ) { it.toList() }
                 .distinctUntilChanged()
@@ -7157,6 +7158,7 @@ class PlaybackService : MediaLibraryService() {
                 activityType = AppSettings.discordActivityType.value,
                 activityName = AppSettings.discordActivityName.value,
                 audioQuality = audioQuality,
+                spotifySpoof = AppSettings.discordSpotifySpoof.value,
             ).onFailure {
                 TrackLog.d("BitChord", "Discord presence failed: ${it.message}", about = song.videoId)
             }

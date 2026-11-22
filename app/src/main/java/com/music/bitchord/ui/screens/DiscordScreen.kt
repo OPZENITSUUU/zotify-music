@@ -161,6 +161,7 @@ fun DiscordScreen(
     val name by AppSettings.discordName.collectAsStateWithLifecycle()
     val avatar by AppSettings.discordAvatar.collectAsStateWithLifecycle()
     val rpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
+    val spotifySpoof by AppSettings.discordSpotifySpoof.collectAsStateWithLifecycle()
     val useDetails by AppSettings.discordUseDetails.collectAsStateWithLifecycle()
     val showAudioQuality by AppSettings.discordShowAudioQuality.collectAsStateWithLifecycle()
     val advancedMode by AppSettings.discordAdvancedMode.collectAsStateWithLifecycle()
@@ -270,14 +271,14 @@ fun DiscordScreen(
             )
             RowDivider()
             SettingsRow(
-                icon = Icons.Rounded.Tune,
-                title = stringResource(R.string.customize_card),
-                subtitle = stringResource(R.string.customize_card_subtitle),
+                icon = Icons.Rounded.SmartButton,
+                title = "Spotify-style presence",
+                subtitle = "Show ‘Listening to Spotify’ with the current track on the Zotify bot profile",
                 enabled = connected && rpcEnabled,
                 trailing = {
                     Switch(
-                        checked = advancedMode,
-                        onCheckedChange = AppSettings::setDiscordAdvancedMode,
+                        checked = spotifySpoof,
+                        onCheckedChange = AppSettings::setDiscordSpotifySpoof,
                         enabled = connected && rpcEnabled,
                         colors = SwitchDefaults.colors(
                             checkedTrackColor = MaterialTheme.colorScheme.primary,
@@ -285,11 +286,11 @@ fun DiscordScreen(
                         ),
                     )
                 },
-                onClick = { AppSettings.setDiscordAdvancedMode(!advancedMode) },
+                onClick = { AppSettings.setDiscordSpotifySpoof(!spotifySpoof) },
             )
         }
 
-        AnimatedVisibility(visible = connected && rpcEnabled && advancedMode) {
+        AnimatedVisibility(visible = connected && rpcEnabled) {
             Column(Modifier.fillMaxWidth()) {
                 SettingsGroup(header = stringResource(R.string.presence)) {
                     SettingsRow(
@@ -326,8 +327,8 @@ fun DiscordScreen(
                 song = song,
                 positionMs = positionMs,
                 durationMs = durationMs,
-                heading = activityName.ifEmpty { appName() },
-                verb = kindOf(activityType).localizedVerb(),
+                heading = if (spotifySpoof) "Spotify" else activityName.ifEmpty { appName() },
+                verb = if (spotifySpoof) "Listening to" else kindOf(activityType).localizedVerb(),
                 useDetails = useDetails,
                 audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
             )
