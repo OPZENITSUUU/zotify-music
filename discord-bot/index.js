@@ -27,6 +27,10 @@ app.use((_req, res, next) => {
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 let ready = false;
+// A Discord bot has one global gateway presence. Serialize connected listeners.
+let activePresenceOwner = null;
+let activePresenceAt = 0;
+const PRESENCE_LEASE_MS = 90_000;
 
 function signPayload(payload) {
   if (!SESSION_SECRET) throw new Error("Discord session signing is not configured");
@@ -231,6 +235,17 @@ app.post("/presence", authorized, (req, res) => {
   const artist = typeof body.artist === "string" ? body.artist.trim().slice(0, 70) : "";
   if (!title) return res.status(400).json({ error: "title_required" });
 
+  const owner = req.discordUser?.sub || "legacy-shared-session";
+  const now = Date.now();
+  if (activePresenceOwner && activePresenceOwner !== owner && now - activePresenceAt < PRESENCE_LEASE_MS) {
+    return res.status(409).json({
+      error: "bot_presence_in_use",
+      message: "The shared Zotify bot profile is currently showing another connected listener.",
+      scope: "shared_bot_account",
+      retry_after_ms: Math.max(0, PRESENCE_LEASE_MS - (now - activePresenceAt))
+    });
+  }
+
   const paused = body.paused === true;
   const spotifySpoof = body.spotifySpoof === true;
   const activityName = spotifySpoof
@@ -262,18 +277,27 @@ app.post("/presence", authorized, (req, res) => {
   const statuses = ["online", "idle", "dnd", "invisible"];
   const status = paused ? "idle" : (statuses.includes(body.status) ? body.status : "online");
   client.user.setPresence({ status, activities: [activity] });
+  activePresenceOwner = owner;
+  activePresenceAt = now;
   return res.json({
     ok: true,
     activity: { name: activityName, details, state, type: activityType },
     status,
+    scope: "shared_bot_account",
     note: "Presence is displayed on the Zotify bot account, not the connected user's personal profile."
   });
 });
 
-app.post("/clear", authorized, (_req, res) => {
+app.post("/clear", authorized, (req, res) => {
   if (!ready || !client.user) return res.status(503).json({ error: "bot_not_ready" });
+  const owner = req.discordUser?.sub || "legacy-shared-session";
+  if (activePresenceOwner !== owner) {
+    return res.json({ ok: true, cleared: false, reason: "not_current_presence_owner" });
+  }
   client.user.setPresence({ status: "online", activities: [] });
-  return res.json({ ok: true });
+  activePresenceOwner = null;
+  activePresenceAt = 0;
+  return res.json({ ok: true, cleared: true });
 });
 
 app.listen(PORT, "0.0.0.0", () => console.log("HTTP server listening on " + PORT));
