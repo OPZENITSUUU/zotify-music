@@ -207,14 +207,24 @@ app.post("/auth/discord/exchange", (req, res) => {
 
 app.post("/presence", authorized, (req, res) => {
   if (!ready || !client.user) return res.status(503).json({ error: "bot_not_ready" });
-  const { title, artist, paused = false, activityType = "listening", activityName = "" } = req.body || {};
+  const {
+    title, artist, paused = false, activityType = "listening", activityName = "",
+    useDetails = false, audioQuality = ""
+  } = req.body || {};
   if (typeof title !== "string" || !title.trim()) return res.status(400).json({ error: "title_required" });
 
-  const safeTitle = title.trim().slice(0, 90);
-  const safeArtist = typeof artist === "string" ? artist.trim().slice(0, 70) : "";
+  const safeTitle = title.trim().slice(0, 70);
+  const safeArtist = typeof artist === "string" ? artist.trim().slice(0, 60) : "";
   const customName = typeof activityName === "string" ? activityName.trim().slice(0, 32) : "";
-  const trackLabel = safeArtist ? safeTitle + " — " + safeArtist : safeTitle;
+  const safeQuality = typeof audioQuality === "string" ? audioQuality.trim().slice(0, 32) : "";
+  // Bot presence supports one activity name, not a personal Rich Presence card.
+  // Preserve the user's "Lead with song" choice in the order of the one line.
+  const trackLabel = safeArtist
+    ? (useDetails ? safeTitle + " — " + safeArtist : safeArtist + " — " + safeTitle)
+    : safeTitle;
   const label = customName ? customName + ": " + trackLabel : trackLabel;
+  const activity = safeQuality ? label + " · " + safeQuality : label;
+  const safeActivity = activity.slice(0, 128);
   const types = {
     playing: ActivityType.Playing,
     listening: ActivityType.Listening,
@@ -224,8 +234,8 @@ app.post("/presence", authorized, (req, res) => {
   const type = types[String(activityType).toLowerCase()] ?? ActivityType.Listening;
   const statuses = ["online", "idle", "dnd", "invisible"];
   const status = paused ? "idle" : (statuses.includes(req.body?.status) ? req.body.status : "online");
-  client.user.setPresence({ status, activities: [{ name: label, type }] });
-  return res.json({ ok: true, activity: label, status, activityType: String(activityType).toLowerCase() });
+  client.user.setPresence({ status, activities: [{ name: safeActivity, type }] });
+  return res.json({ ok: true, activity: safeActivity, status, activityType: String(activityType).toLowerCase() });
 });
 
 app.post("/clear", authorized, (_req, res) => {
