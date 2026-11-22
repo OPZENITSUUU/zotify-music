@@ -175,9 +175,11 @@ class DiscordRPC(
             runCatching { refreshTokens() }
             registered = register()
         }
-        if (registered != null) synchronized(externalAssets) {
-            externalAssets[url] = registered
-            if (externalAssets.size > 128) externalAssets.remove(externalAssets.keys.first())
+        registered?.let { asset ->
+            synchronized(externalAssets) {
+                externalAssets[url] = asset
+                if (externalAssets.size > 128) externalAssets.remove(externalAssets.keys.first())
+            }
         }
         registered
     }
