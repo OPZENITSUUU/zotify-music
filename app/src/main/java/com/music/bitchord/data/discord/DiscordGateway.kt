@@ -5,8 +5,10 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocketSession
+import io.ktor.client.request.header
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
+import io.ktor.websocket.readText
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +50,7 @@ internal class DiscordGateway(private val accessToken: String) {
     suspend fun connect() = connectLock.withLock {
         if (ready && socket?.isActive == true) return@withLock
         disconnectSocket()
+        sequence = null
         val readySignal = CompletableDeferred<Unit>()
         val session = client.webSocketSession(GATEWAY_URL) {
             header("User-Agent", "Discord-Android/314013;RNA")
