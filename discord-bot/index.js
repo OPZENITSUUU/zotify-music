@@ -80,7 +80,7 @@ function authorized(req, res, next) {
 
 function cleanupExpiredAuth() {
   const now = Date.now();
-  for (const [key, expiresAt] of states) if (expiresAt <= now) states.delete(key);
+  for (const [key, entry] of states) if (entry.expiresAt <= now) states.delete(key);
   for (const [key, entry] of tickets) if (entry.expiresAt <= now) tickets.delete(key);
 }
 
@@ -97,11 +97,18 @@ app.get("/auth/discord", (req, res) => {
     return res.status(400).json({ error: "invalid_redirect_uri" });
   }
 
+  const codeChallenge = typeof req.query.code_challenge === "string" ? req.query.code_challenge : "";
+  const challengeMethod = typeof req.query.code_challenge_method === "string"
+    ? req.query.code_challenge_method : "";
+  if (challengeMethod !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
+    return res.status(400).json({ error: "pkce_required" });
+  }
+
   cleanupExpiredAuth();
   if (states.size >= MAX_PENDING_AUTH) return res.status(503).json({ error: "authorization_busy" });
 
   const state = crypto.randomBytes(24).toString("base64url");
-  states.set(state, Date.now() + STATE_TTL_MS);
+  states.set(state, { expiresAt: Date.now() + STATE_TTL_MS, codeChallenge });
   const callbackUrl = PUBLIC_BASE_URL + CALLBACK_PATH;
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
@@ -116,8 +123,8 @@ app.get("/auth/discord", (req, res) => {
 app.get(CALLBACK_PATH, async (req, res) => {
   cleanupExpiredAuth();
   const state = typeof req.query.state === "string" ? req.query.state : "";
-  const expiresAt = states.get(state);
-  if (!state || !expiresAt || expiresAt <= Date.now() || req.query.error) {
+  const authState = states.get(state);
+  if (!state || !authState || authState.expiresAt <= Date.now() || req.query.error) {
     states.delete(state);
     return res.status(400).send("Discord authorization was cancelled or expired. You can close this tab.");
   }
@@ -158,7 +165,7 @@ app.get(CALLBACK_PATH, async (req, res) => {
     }
 
     const ticket = crypto.randomBytes(32).toString("base64url");
-    tickets.set(ticket, { user, expiresAt: Date.now() + TICKET_TTL_MS });
+    tickets.set(ticket, { user, codeChallenge: authState.codeChallenge, expiresAt: Date.now() + TICKET_TTL_MS });
     return res.redirect(302, MOBILE_REDIRECT_URI + "?ticket=" + encodeURIComponent(ticket));
   } catch (error) {
     console.error("Discord OAuth callback failed:", error.message);
@@ -170,11 +177,23 @@ app.post("/auth/discord/exchange", (req, res) => {
   cleanupExpiredAuth();
   const ticket = typeof req.body?.ticket === "string" ? req.body.ticket : "";
   const entry = tickets.get(ticket);
-  tickets.delete(ticket);
   if (!entry || entry.expiresAt <= Date.now()) {
+    tickets.delete(ticket);
     return res.status(401).json({ error: "invalid_or_expired_ticket" });
   }
 
+  const verifier = typeof req.body?.code_verifier === "string" ? req.body.code_verifier : "";
+  if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) {
+    return res.status(401).json({ error: "invalid_pkce_verifier" });
+  }
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+  const supplied = Buffer.from(challenge);
+  const expected = Buffer.from(entry.codeChallenge || "");
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+    return res.status(401).json({ error: "invalid_pkce_verifier" });
+  }
+
+  tickets.delete(ticket);
   return res.json({
     access_token: sessionFor(entry.user),
     user: {
