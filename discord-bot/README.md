@@ -5,12 +5,10 @@ Server-side Discord bot bridge for Zotify Music. Android opens Discord OAuth2 us
 ## Render deployment
 
 - Runtime: Node 20 or newer
-- Root directory: `discord-bot`
-- Build command: `npm install`
-- Start command: `npm start`
 - Public service URL: `https://zotify-discord-bot.onrender.com`
+- Deploy branch: `main` after this fix is merged.
 
-Deploy the `main` branch after merging the backend OAuth route fix.
+**Keep the Render service's existing Root Directory setting.** The repository previously documented a repository-root setup, which uses Build command `cd discord-bot && npm install` and Start command `cd discord-bot && npm start`. If the service is already configured with Root Directory set to `discord-bot`, keep that setting and use `npm install` / `npm start` instead. Do not change the Root Directory just to match this README.
 
 ## Required Render environment variables
 
@@ -55,7 +53,7 @@ Presence and clear requests use `Authorization: Bearer <zotify-session-token>`. 
 
 ## Troubleshooting
 
-- `Cannot GET /auth/discord`: Render is still running an old deployment. Confirm the service deploys this repository's `main` branch and that its root directory is `discord-bot`.
+- `Cannot GET /auth/discord`: Render is still running an old deployment, or the service is using a different repository/branch or start command. Confirm it deploys this repository's `main` branch and that the start command launches `discord-bot/index.js`; preserve the existing Root Directory arrangement.
 - `oauth_not_configured`: add `DISCORD_CLIENT_SECRET` and `DISCORD_SESSION_SECRET` to the Render environment, then redeploy.
 - Discord reports a redirect mismatch: the Discord Developer Portal callback must exactly match the HTTPS URL above.
 - `bot_not_ready`: check `DISCORD_BOT_TOKEN` and the bot login logs in Render.
