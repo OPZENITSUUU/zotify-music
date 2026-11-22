@@ -171,6 +171,21 @@
     <string name="try_again">Try Again</string>
     <string name="open_releases_page">Open Releases Page</string>
     <string name="whats_new">What’s new</string>
+    <string name="whats_new_subtitle" translatable="false">See the highlights in Zotify Music v1.10</string>
+    <string name="whats_new_title" translatable="false">What’s new in Zotify Music v1.10</string>
+    <string-array name="whats_new_v1_10" translatable="false">
+        <item>Mochy-compatible Appearance Skin Manager: import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.</item>
+        <item>Review skin metadata and supported or unsupported settings before installing a pack.</item>
+        <item>Customise accent colour, pure-black mode, and artwork corner radius with native appearance controls.</item>
+        <item>Keep one skin active, disable or remove it to restore the previous appearance, and retain the choice after restarting.</item>
+        <item>Cleaner addon defaults: retired unavailable bundled entries while preserving existing user-created addons.</item>
+        <item>Lyrics improvements: smoother karaoke pause/resume, RTL alignment, fixed Chinese translation, timed YouTube Music lyrics, synced lyrics, and local MP3 lyrics.</item>
+        <item>Playback and queue improvements: ordered playlist or album playback, AC-4 through FFmpeg, spatial loudness limiting, swipe/undo/multi-select queue actions, and cleaner queue history.</item>
+        <item>Replay and backup improvements: stable Top Albums, animated shareable Replay Year stories, and Google Drive backup, restore, and auto-sync.</item>
+        <item>Player and discovery improvements: Radio, Best Part, Premium Opus, liked-song offline downloads, animated lyrics sharing, AutoMix artwork transitions, song credits, sleep fade-out, improved matching, and library-aware search.</item>
+        <item>Navigation and artwork improvements: active-tab scroll-to-top, high-resolution covers, local artwork preservation, tablet video full-screen fixes, and smaller first-use AutoMix downloads.</item>
+        <item>Android 8.0 / API 26+ phone, Android TV, Google TV, and Fire TV builds are available in universal and ABI-specific APKs. Wear OS 3+ ships with the phone app and is managed from Settings.</item>
+    </string-array>
     <string name="log_copied">Log copied · %1$d lines</string>
     <string name="sign_in_youtube_music">Sign in to YouTube Music</string>
     <string name="choose_a_channel">Choose a channel</string>
