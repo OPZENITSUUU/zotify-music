@@ -12,7 +12,7 @@ const SESSION_SECRET = process.env.DISCORD_SESSION_SECRET;
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://zotify-discord-bot.onrender.com").replace(/\/+$/, "");
 const MOBILE_REDIRECT_URI = process.env.DISCORD_MOBILE_REDIRECT_URI || "zotify://discord/oauth/callback";
 const CALLBACK_PATH = "/auth/discord/callback";
-const CALLBACK_URL = \`\${PUBLIC_BASE_URL}\${CALLBACK_PATH}\`;
+const CALLBACK_URL = `${PUBLIC_BASE_URL}${CALLBACK_PATH}`;
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const STATE_TTL_MS = 10 * 60 * 1000;
 const TICKET_TTL_MS = 60 * 1000;
@@ -46,7 +46,7 @@ function createSession(user) {
     .update(payload)
     .digest("base64url");
 
-  return \`\${payload}.\${signature}\`;
+  return `${payload}.${signature}`;
 }
 
 function verifySession(token) {
@@ -159,7 +159,7 @@ app.get("/auth/discord", noStore, (req, res) => {
     state,
   });
 
-  return res.redirect(302, \`https://discord.com/oauth2/authorize?\${params.toString()}\`);
+  return res.redirect(302, `https://discord.com/oauth2/authorize?${params.toString()}`);
 });
 
 /**
@@ -205,7 +205,7 @@ app.get(CALLBACK_PATH, noStore, async (req, res) => {
     });
 
     if (!tokenResponse.ok) {
-      throw new Error(\`Discord token exchange failed with HTTP \${tokenResponse.status}\`);
+      throw new Error(`Discord token exchange failed with HTTP ${tokenResponse.status}`);
     }
 
     const token = await tokenResponse.json();
@@ -214,11 +214,11 @@ app.get(CALLBACK_PATH, noStore, async (req, res) => {
     }
 
     const profileResponse = await fetchDiscord("https://discord.com/api/users/@me", {
-      headers: { Authorization: \`Bearer \${token.access_token}\` },
+      headers: { Authorization: `Bearer ${token.access_token}` },
     });
 
     if (!profileResponse.ok) {
-      throw new Error(\`Discord profile lookup failed with HTTP \${profileResponse.status}\`);
+      throw new Error(`Discord profile lookup failed with HTTP ${profileResponse.status}`);
     }
 
     const user = await profileResponse.json();
@@ -237,7 +237,7 @@ app.get(CALLBACK_PATH, noStore, async (req, res) => {
       expiresAt: Date.now() + TICKET_TTL_MS,
     });
 
-    return res.redirect(302, \`\${MOBILE_REDIRECT_URI}?ticket=\${encodeURIComponent(ticket)}\`);
+    return res.redirect(302, `${MOBILE_REDIRECT_URI}?ticket=${encodeURIComponent(ticket)}`);
   } catch (error) {
     // Do not log authorization codes, access tokens, or client secrets.
     console.error("Discord OAuth callback failed:", error.message);
@@ -295,8 +295,8 @@ app.post("/presence", requireDiscordSession, (req, res) => {
   const safeTitle = title.trim().slice(0, 90);
   const safeArtist = typeof artist === "string" ? artist.trim().slice(0, 70) : "";
   const safeActivityName = typeof activityName === "string" ? activityName.trim().slice(0, 32) : "";
-  const track = safeArtist ? \`\${safeTitle} — \${safeArtist}\` : safeTitle;
-  const label = safeActivityName ? \`\${safeActivityName}: \${track}\` : track;
+  const track = safeArtist ? `${safeTitle} — ${safeArtist}` : safeTitle;
+  const label = safeActivityName ? `${safeActivityName}: ${track}` : track;
 
   const activityTypes = {
     playing: ActivityType.Playing,
@@ -332,7 +332,7 @@ app.post("/clear", requireDiscordSession, (_req, res) => {
 });
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(\`Zotify Discord Bot HTTP server listening on port \${PORT}\`);
+  console.log(`Zotify Discord Bot HTTP server listening on port ${PORT}`);
 });
 
 if (!BOT_TOKEN) {
@@ -344,7 +344,7 @@ if (!CLIENT_SECRET || !SESSION_SECRET) {
 
 client.once("ready", () => {
   ready = true;
-  console.log(\`Discord bot logged in as \${client.user.tag}\`);
+  console.log(`Discord bot logged in as ${client.user.tag}`);
 });
 
 client.on("error", (error) => {
