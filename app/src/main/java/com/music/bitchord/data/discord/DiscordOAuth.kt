@@ -3,6 +3,7 @@ package com.music.bitchord.data.discord
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Base64
 import android.widget.Toast
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
@@ -12,23 +13,40 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
+import java.security.SecureRandom
 
 /**
- * Official Discord OAuth authorization-code flow.
+ * Official Discord OAuth authorization-code flow using PKCE.
  *
- * Discord credentials are handled by Discord in the browser. The app receives
- * only a short-lived one-time ticket, exchanges it with the Zotify backend,
- * then stores the backend session in encrypted app storage.
+ * Discord credentials are handled by Discord in the browser. The redirect may
+ * expose the one-time ticket to another app that claims the custom URI scheme,
+ * but that app cannot exchange it without the verifier kept in encrypted app
+ * storage.
  */
 object DiscordOAuth {
     private const val REDIRECT_URI = "zotify://discord/oauth/callback"
-    private const val START_PATH = "/auth/discord?redirect_uri="
+    private const val START_URL = "/auth/discord"
 
     fun start(context: Context) {
-        val uri = Uri.parse(
-            DiscordRPC.BASE_URL + START_PATH + Uri.encode(REDIRECT_URI)
+        val random = ByteArray(32).also(SecureRandom()::nextBytes)
+        val verifier = base64Url(random)
+        val challenge = base64Url(
+            MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII))
         )
-        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+        AppSettings.setPendingDiscordOAuthVerifier(verifier)
+
+        val uri = Uri.parse(DiscordRPC.BASE_URL + START_URL).buildUpon()
+            .appendQueryParameter("redirect_uri", REDIRECT_URI)
+            .appendQueryParameter("code_challenge", challenge)
+            .appendQueryParameter("code_challenge_method", "S256")
+            .build()
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (failure: Exception) {
+            AppSettings.setPendingDiscordOAuthVerifier(null)
+            throw failure
+        }
     }
 
     fun consumeCallback(context: Context, intent: Intent?, scope: CoroutineScope) {
@@ -41,19 +59,28 @@ object DiscordOAuth {
 
         val error = callback.getQueryParameter("error")
         if (!error.isNullOrBlank()) {
+            AppSettings.setPendingDiscordOAuthVerifier(null)
             Toast.makeText(context, "Discord authorization was cancelled", Toast.LENGTH_LONG).show()
             return
         }
 
         val ticket = callback.getQueryParameter("ticket")
         if (ticket.isNullOrBlank()) {
+            AppSettings.setPendingDiscordOAuthVerifier(null)
             Toast.makeText(context, "Discord authorization returned no ticket", Toast.LENGTH_LONG).show()
+            return
+        }
+        val verifier = AppSettings.takePendingDiscordOAuthVerifier()
+        if (verifier.isNullOrBlank()) {
+            Toast.makeText(context, "Discord authorization expired. Please connect again.", Toast.LENGTH_LONG).show()
             return
         }
 
         scope.launch(Dispatchers.IO) {
             try {
-                val payload = JSONObject().put("ticket", ticket)
+                val payload = JSONObject()
+                    .put("ticket", ticket)
+                    .put("code_verifier", verifier)
                 val connection = (URL(DiscordRPC.BASE_URL + "/auth/discord/exchange")
                     .openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
@@ -110,4 +137,7 @@ object DiscordOAuth {
             }
         }
     }
+
+    private fun base64Url(bytes: ByteArray): String =
+        Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
 }
