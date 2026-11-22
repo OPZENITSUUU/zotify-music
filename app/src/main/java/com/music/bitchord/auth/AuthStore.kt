@@ -118,7 +118,16 @@ class AuthStore(context: Context) {
 
     init {
         // Remove credentials saved by the retired user-token/self-bot implementation.
+        val oldBridgeSession = discordSessionToken
+        val isLegacySignedBridgeSession = oldBridgeSession?.count { it == '.' } == 1
         prefs.edit().remove(KEY_DISCORD_TOKEN).remove("discord_bot_secret").apply()
+        // The former Render bridge returned a signed app-session, not a Discord
+        // OAuth token. It cannot authenticate to the user's Social Layer gateway.
+        if (isLegacySignedBridgeSession) {
+            discordSessionToken = null
+            discordRefreshToken = null
+            discordTokenExpiresAt = 0L
+        }
     }
 
     /**
