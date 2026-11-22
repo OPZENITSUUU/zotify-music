@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.ui.theme.LocalArtworkCornerRadius
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -252,6 +254,7 @@ private fun ReorderRow(
     onDragEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val artworkShape = RoundedCornerShape(LocalArtworkCornerRadius.current ?: 7.dp)
     // Holding anywhere on the row picks it up too, not only the handle — the
     // handle is a small target, and a long press is what lists elsewhere on
     // the phone teach people to try first.
@@ -282,8 +285,8 @@ private fun ReorderRow(
             contentDescription = null,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .thumbnailBorder(RoundedCornerShape(7.dp))
+                .clip(artworkShape)
+                .thumbnailBorder(artworkShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Spacer(Modifier.width(16.dp))

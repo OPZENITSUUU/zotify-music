@@ -1,0 +1,412 @@
+name: Build Historical TV and Desktop Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Historical published release to build; no release assets are uploaded by this workflow"
+        required: true
+        type: choice
+        options:
+          - v1.0.1
+          - v1.0.2
+          - v1.0.3
+          - v1.0.4
+          - v1.0.5
+          - v1.0.6
+          - v1.0.7
+
+permissions:
+  contents: read
+
+concurrency:
+  group: historical-assets-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate pinned historical source and existing release
+    runs-on: ubuntu-22.04
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      tv_version_name: ${{ steps.source.outputs.tv_version_name }}
+      tv_version_code: ${{ steps.source.outputs.tv_version_code }}
+      desktop_app_version: ${{ steps.source.outputs.desktop_app_version }}
+      desktop_version_code: ${{ steps.source.outputs.desktop_version_code }}
+    steps:
+      - name: Check out workflow tooling from the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: tooling
+          fetch-depth: 0
+
+      - name: Check out exact historical tag source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          path: historical-source
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify pinned tag source and existing public release
+        id: source
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 tooling/.github/scripts/historical_release_backfill.py \
+            validate-source --tag "$RELEASE_TAG" --source historical-source \
+            --github-output "$GITHUB_OUTPUT"
+          python3 tooling/.github/scripts/historical_release_backfill.py validate-release --tag "$RELEASE_TAG"
+
+  build_tv:
+    name: Build signed Android TV APK
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out workflow tooling from the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: tooling
+          fetch-depth: 0
+
+      - name: Check out exact historical tag source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          path: historical-source
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Write Android local.properties
+        shell: bash
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=${LASTFM_API_KEY:-}" "LASTFM_SECRET=${LASTFM_SECRET:-}" > historical-source/local.properties
+
+      - name: Configure and verify the existing production signing identity
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Required Actions secret is missing or empty: $name"
+              exit 1
+            fi
+          done
+          if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode > historical-source/zotify-release.jks; then
+            echo "::error::Configured release keystore is not valid base64"
+            exit 1
+          fi
+          if [[ ! -s historical-source/zotify-release.jks ]] || ! keytool -list \
+            -keystore historical-source/zotify-release.jks -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::Configured keystore, password, or signing alias is invalid"
+            exit 1
+          fi
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          printf 'signing validation\n' > "$temp_dir/payload.txt"
+          jar cf "$temp_dir/unsigned.jar" -C "$temp_dir" payload.txt >/dev/null
+          if ! jarsigner -keystore historical-source/zotify-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+            -signedjar "$temp_dir/signed.jar" "$temp_dir/unsigned.jar" "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::Configured signing key password cannot unlock the production alias"
+            exit 1
+          fi
+          keytool -exportcert -alias "$KEY_ALIAS" -keystore historical-source/zotify-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" -file "$temp_dir/certificate.der" >/dev/null 2>&1
+          certificate_sha256="$(sha256sum "$temp_dir/certificate.der" | awk '{print toupper($1)}')"
+          expected_sha256="EAD01DEB09889B57D7C9E16E52811CE02E85754BD6C19A483AAF772A59C7EE30"
+          if [[ "$certificate_sha256" != "$expected_sha256" ]]; then
+            echo "::error::Signing certificate fingerprint mismatch; historical APK build stopped"
+            exit 1
+          fi
+          {
+            printf 'storeFile=zotify-release.jks\n'
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > historical-source/keystore.properties
+          chmod 600 historical-source/zotify-release.jks historical-source/keystore.properties
+          echo "Existing production signing certificate verified."
+
+      - name: Build historical production TV APK
+        working-directory: historical-source
+        run: ./gradlew :tv:assembleProdRelease
+
+      - name: Verify TV package identity, version, alignment, and signature
+        shell: bash
+        env:
+          TV_VERSION_NAME: ${{ needs.validate.outputs.tv_version_name }}
+          TV_VERSION_CODE: ${{ needs.validate.outputs.tv_version_code }}
+        run: |
+          set -euo pipefail
+          mapfile -t tv_apks < <(find historical-source/tv/build/outputs/apk/prod/release \
+            -maxdepth 1 -type f -name '*universal*.apk' -print)
+          if [[ "${#tv_apks[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one production universal TV APK; found ${#tv_apks[@]}"
+            exit 1
+          fi
+          apk="${tv_apks[0]}"
+          test -s "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK path is unavailable}}"
+          build_tools="$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          badging="$("$build_tools/aapt" dump badging "$apk")"
+          grep -F "package: name='com.zotifymusic.player.tv'" <<< "$badging"
+          grep -F "versionName='$TV_VERSION_NAME'" <<< "$badging"
+          grep -F "versionCode='$TV_VERSION_CODE'" <<< "$badging"
+          "$build_tools/zipalign" -c -v 4 "$apk"
+          cert_output="$("$build_tools/apksigner" verify --verbose --print-certs "$apk")"
+          apk_certificate="$(awk -F': ' '/certificate SHA-256 digest/ {gsub(/:/, "", $2); print toupper($2); exit}' <<< "$cert_output")"
+          expected_certificate="EAD01DEB09889B57D7C9E16E52811CE02E85754BD6C19A483AAF772A59C7EE30"
+          if [[ "$apk_certificate" != "$expected_certificate" ]]; then
+            echo "::error::TV APK signing certificate fingerprint mismatch"
+            exit 1
+          fi
+          mkdir -p historical-source/historical-assets
+          asset="ZotifyMusicTV-v${TV_VERSION_NAME}.apk"
+          cp "$apk" "historical-source/historical-assets/$asset"
+          (cd historical-source/historical-assets && sha256sum "$asset" > "$asset.sha256" && sha256sum --check "$asset.sha256")
+          rm -f historical-source/zotify-release.jks historical-source/keystore.properties historical-source/local.properties
+
+      - name: Upload verified TV build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-assets-tv
+          path: historical-source/historical-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+  build_desktop:
+    name: Build historical Desktop packages · ${{ matrix.platform }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            platform: linux
+            machine: x86_64
+          - runner: windows-latest
+            platform: windows
+            machine: x86_64
+          - runner: macos-latest
+            platform: macos
+            machine: ""
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out workflow tooling from the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: tooling
+          fetch-depth: 0
+
+      - name: Check out exact historical tag source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          path: historical-source
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Write Desktop local.properties (Linux/macOS)
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=${LASTFM_API_KEY:-}" "LASTFM_SECRET=${LASTFM_SECRET:-}" > historical-source/local.properties
+
+      - name: Write Desktop local.properties (Windows)
+        if: matrix.platform == 'windows'
+        shell: powershell
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          $properties = @("LASTFM_API_KEY=$env:LASTFM_API_KEY", "LASTFM_SECRET=$env:LASTFM_SECRET")
+          [System.IO.File]::WriteAllLines((Join-Path $PWD 'historical-source/local.properties'), $properties, [System.Text.UTF8Encoding]::new($false))
+
+      - name: Install Linux native package tools
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fakeroot rpm
+          command -v fakeroot
+          command -v rpmbuild
+
+      - name: Ensure WiX Toolset is available
+        if: matrix.platform == 'windows'
+        shell: powershell
+        run: |
+          $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+          if (-not $candle) {
+            choco install wixtoolset --yes --no-progress
+            $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $candle) {
+            $candleFile = Get-ChildItem 'C:\Program Files (x86)\WiX Toolset*' -Filter candle.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candleFile) { $candle = $candleFile.FullName }
+          }
+          if (-not $candle) { throw 'WiX Toolset candle.exe was not found; cannot package MSI/EXE.' }
+          $wixBin = Split-Path $candle.Source
+          if (-not $wixBin) { $wixBin = Split-Path $candle }
+          Add-Content -Path $env:GITHUB_PATH -Value $wixBin
+          if (-not (Test-Path (Join-Path $wixBin 'light.exe'))) { throw 'WiX light.exe is unavailable.' }
+
+      - name: Prepare tag-specific historical Desktop version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: python tooling/.github/scripts/desktop_release_assets.py --tag "$RELEASE_TAG" --gradle-file historical-source/desktopApp/build.gradle.kts --apply
+
+      - name: Build Linux packages
+        if: matrix.platform == 'linux'
+        working-directory: historical-source
+        env:
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+          DESKTOP_VERSION_CODE: ${{ needs.validate.outputs.desktop_version_code }}
+        run: ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm "-Pbitchord.version=$DESKTOP_VERSION" "-Pbitchord.desktopVersionCode=$DESKTOP_VERSION_CODE"
+
+      - name: Build Windows packages
+        if: matrix.platform == 'windows'
+        shell: powershell
+        working-directory: historical-source
+        env:
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+          DESKTOP_VERSION_CODE: ${{ needs.validate.outputs.desktop_version_code }}
+        run: .\gradlew.bat :desktopApp:packageExe :desktopApp:packageMsi "-Pbitchord.version=$env:DESKTOP_VERSION" "-Pbitchord.desktopVersionCode=$env:DESKTOP_VERSION_CODE"
+
+      - name: Build macOS packages
+        if: matrix.platform == 'macos'
+        working-directory: historical-source
+        env:
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+          DESKTOP_VERSION_CODE: ${{ needs.validate.outputs.desktop_version_code }}
+        run: ./gradlew :desktopApp:packageDmg :desktopApp:packagePkg "-Pbitchord.version=$DESKTOP_VERSION" "-Pbitchord.desktopVersionCode=$DESKTOP_VERSION_CODE"
+
+      - name: Collect Desktop packages and create checksums (Windows)
+        if: matrix.platform == 'windows'
+        shell: powershell
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TARGET_MACHINE: ${{ matrix.machine }}
+        run: python tooling/.github/scripts/desktop_release_assets.py --tag "$env:RELEASE_TAG" --platform windows --machine "$env:TARGET_MACHINE" --binaries-root historical-source/desktopApp/build/compose/binaries/main --output-dir historical-source/historical-assets
+
+      - name: Collect Desktop packages and create checksums (Linux/macOS)
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          TARGET_MACHINE: ${{ matrix.machine }}
+        run: python3 tooling/.github/scripts/desktop_release_assets.py --tag "$RELEASE_TAG" --platform "$TARGET_PLATFORM" --machine "$TARGET_MACHINE" --binaries-root historical-source/desktopApp/build/compose/binaries/main --output-dir historical-source/historical-assets
+
+      - name: Upload verified Desktop build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-assets-${{ matrix.platform }}
+          path: historical-source/historical-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+  manifest:
+    name: Verify inventory and create review manifest
+    needs: [validate, build_tv, build_desktop]
+    runs-on: ubuntu-22.04
+    outputs:
+      manifest_sha256: ${{ steps.manifest.outputs.manifest_sha256 }}
+    steps:
+      - name: Check out workflow tooling from the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: tooling
+          fetch-depth: 0
+
+      - name: Download all verified TV and Desktop assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: historical-assets-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify exact asset inventory and create pinned manifest
+        id: manifest
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          python3 tooling/.github/scripts/historical_release_backfill.py create-manifest \
+            --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" \
+            --assets-dir release-assets --output release-assets/manifest.json \
+            --github-output "$GITHUB_OUTPUT"
+          cat release-assets/manifest.json
+          {
+            echo "## Historical release assets are built, not published"
+            echo
+            echo "Tag: \`$RELEASE_TAG\`"
+            echo "Pinned source: \`$SOURCE_SHA\`"
+            manifest_sha="$(sed -n 's/^manifest_sha256=//p' "$GITHUB_OUTPUT")"
+            echo "Manifest SHA-256: \`$manifest_sha\`"
+            echo
+            echo "Review every listed filename and SHA-256 before any separate publication workflow is run."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reviewable build artifact and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-release-${{ inputs.release_tag }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30

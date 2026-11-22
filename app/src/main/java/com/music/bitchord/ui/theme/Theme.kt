@@ -8,6 +8,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.SideEffect
@@ -20,9 +21,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.music.zotifymusic.R
 import com.music.bitchord.data.settings.UiSkin
+import com.music.bitchord.data.settings.AppearanceSkinState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 // Apple Music's signature red. No longer the primary accent, but kept for the
 // spots (Replay's rank badge) that want that specific red regardless of theme.
@@ -122,6 +126,9 @@ private val MochyTypography = Typography(
 
 val LocalUiSkin = compositionLocalOf { UiSkin.ZOTIFY }
 
+/** Imported look packs may change artwork clipping without changing player-bar geometry. */
+val LocalArtworkCornerRadius = compositionLocalOf<Dp?> { null }
+
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */
 private fun Typography.withFamily(family: FontFamily) = Typography(
     displayLarge = displayLarge.copy(fontFamily = family),
@@ -148,12 +155,36 @@ fun BitChordTheme(
     content: @Composable () -> Unit,
 ) {
     val mochy = uiSkin == UiSkin.MOCHY
+    val skinAccentArgb by AppearanceSkinState.accentArgb.collectAsStateWithLifecycle()
+    val skinPureBlack by AppearanceSkinState.pureBlack.collectAsStateWithLifecycle()
+    val skinCornerRadius by AppearanceSkinState.thumbnailCornerRadius.collectAsStateWithLifecycle()
+    val resolvedDark = mochy || skinPureBlack == true || darkTheme
+    val baseColors = if (mochy) MochyColors else if (resolvedDark) DarkColors else LightColors
+    val skinAccent = skinAccentArgb?.let { Color(it) }
+    val resolvedColors = if (skinAccent == null) {
+        baseColors
+    } else {
+        val luminance = skinAccent.red * 0.299f + skinAccent.green * 0.587f + skinAccent.blue * 0.114f
+        val onAccent = if (luminance > 0.55f) Color.Black else Color.White
+        baseColors.copy(
+            primary = skinAccent,
+            onPrimary = onAccent,
+            primaryContainer = skinAccent.copy(alpha = 0.22f),
+            onPrimaryContainer = if (resolvedDark) Color.White else Color.Black,
+        )
+    }
     MaterialTheme(
-        colorScheme = if (mochy) MochyColors else if (darkTheme) DarkColors else LightColors,
+        colorScheme = resolvedColors,
         typography = if (mochy) MochyTypography else BitChordTypography,
+        // Thumbnail radius is intentionally scoped to artwork via LocalArtworkCornerRadius.
+        // Material surfaces (dialogs, menus, cards) keep the app's normal shape scale.
         shapes = if (mochy) MochyShapes else Shapes(),
     ) {
-        CompositionLocalProvider(LocalUiSkin provides uiSkin, content = content)
+        CompositionLocalProvider(
+            LocalUiSkin provides uiSkin,
+            LocalArtworkCornerRadius provides skinCornerRadius?.dp,
+            content = content,
+        )
     }
 }
 

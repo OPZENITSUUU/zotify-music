@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.zotifymusic.R
 import com.music.bitchord.wear.WatchInstaller
 import android.content.Context
 import android.content.Intent
@@ -158,12 +159,10 @@ import com.music.bitchord.data.settings.LauncherIconManager
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.data.settings.AutomixPerformanceMode
-import com.music.zotifymusic.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
-import com.music.bitchord.data.settings.UiSkin
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
@@ -236,7 +235,6 @@ fun SettingsScreen(
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
-    val uiSkin by AppSettings.uiSkin.collectAsStateWithLifecycle()
     val selectedLauncherIcon by AppSettings.launcherIcon.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
@@ -306,6 +304,7 @@ fun SettingsScreen(
     var pickingDownloadQuality by remember { mutableStateOf(false) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     var showLauncherIconPicker by remember { mutableStateOf(false) }
+    var showAppearanceSkinLibrary by remember { mutableStateOf(false) }
     var pendingLauncherIcon by remember { mutableStateOf(selectedLauncherIcon) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
@@ -895,29 +894,13 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
-            val uiSkinTitle = stringResource(R.string.change_ui_skin)
-            row(uiSkinTitle, "interface", "appearance", "zotify", "mochy") {
+            val appearanceSkinsTitle = stringResource(R.string.appearance_skins_title)
+            row(appearanceSkinsTitle, "appearance", "theme", "built in", "mochy", "style") {
                 SettingsRow(
-                    icon = Icons.Rounded.Apps,
-                    title = uiSkinTitle,
-                    subtitle = stringResource(
-                        if (uiSkin == UiSkin.MOCHY) {
-                            R.string.ui_skin_mochy_selected
-                        } else {
-                            R.string.ui_skin_zotify_selected
-                        },
-                    ),
-                )
-                SegmentedControl(
-                    options = listOf(
-                        stringResource(R.string.ui_skin_zotify),
-                        stringResource(R.string.ui_skin_mochy),
-                    ),
-                    selectedIndex = if (uiSkin == UiSkin.MOCHY) 1 else 0,
-                    onSelect = { selected ->
-                        AppSettings.setUiSkin(if (selected == 1) UiSkin.MOCHY else UiSkin.ZOTIFY)
-                    },
-                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    icon = Icons.Rounded.Draw,
+                    title = appearanceSkinsTitle,
+                    subtitle = stringResource(R.string.appearance_skins_settings_entry_subtitle),
+                    onClick = { showAppearanceSkinLibrary = true },
                 )
             }
             val reduceAnimationTitle = stringResource(R.string.reduce_animation)
@@ -2213,6 +2196,10 @@ fun SettingsScreen(
                 }
             },
         )
+    }
+
+    if (showAppearanceSkinLibrary) {
+        AppearanceSkinLibrarySheet(onDismiss = { showAppearanceSkinLibrary = false })
     }
 
     if (showLastfmLoginDialog) {

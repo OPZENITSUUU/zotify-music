@@ -11,6 +11,7 @@ package com.music.bitchord.ui.components
 
 import com.music.bitchord.data.settings.UiSkin
 import com.music.bitchord.ui.theme.LocalUiSkin
+import com.music.bitchord.ui.theme.LocalArtworkCornerRadius
 
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -307,6 +308,8 @@ private fun GlassNowPlaying(
     )
 
     val artSize = if (isInline) 32.dp else 40.dp
+    val artworkCorner = LocalArtworkCornerRadius.current ?: if (isInline) 6.dp else 8.dp
+    val artworkShape = RoundedCornerShape(artworkCorner)
     val glyphSlot = if (isInline) 32.dp else 40.dp
     val glyphSize = if (isInline) 24.dp else 32.dp
 
@@ -365,8 +368,8 @@ private fun GlassNowPlaying(
                     .size(artSize)
                     // Whichever of the two densities is on screen is the one
                     // the player flies to: only one is composed at rest.
-                    .playerDockArt(dock, if (isInline) 6.dp else 8.dp)
-                    .clip(RoundedCornerShape(if (isInline) 6.dp else 8.dp))
+                    .playerDockArt(dock, artworkCorner)
+                    .clip(artworkShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             Spacer(Modifier.width(if (isInline) 8.dp else 10.dp))

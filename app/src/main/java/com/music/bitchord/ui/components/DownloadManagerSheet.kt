@@ -288,6 +288,7 @@ private fun DownloadManagerRow(
     onCancel: () -> Unit,
     onRetry: () -> Unit,
 ) {
+    val artworkCorner = com.music.bitchord.ui.theme.LocalArtworkCornerRadius.current ?: 8.dp
     val progress = item.progress
     val failed = progress as? DownloadProgress.Failed
 
@@ -303,8 +304,8 @@ private fun DownloadManagerRow(
                 contentDescription = null,
                 modifier = Modifier
                     .size(ART_SIZE)
-                    .clip(RoundedCornerShape(8.dp))
-                    .thumbnailBorder(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(artworkCorner))
+                    .thumbnailBorder(RoundedCornerShape(artworkCorner))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             // A finished or failed track is stated over its own cover rather
@@ -314,7 +315,7 @@ private fun DownloadManagerRow(
                 Box(
                     modifier = Modifier
                         .size(ART_SIZE)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(artworkCorner))
                         .background(Color.Black.copy(alpha = 0.45f)),
                     contentAlignment = Alignment.Center,
                 ) {

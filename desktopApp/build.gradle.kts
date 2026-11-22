@@ -23,10 +23,12 @@ val targetOs: String = (providers.gradleProperty("bitchord.target").orNull ?: wh
 val hostArch = System.getProperty("os.arch").lowercase()
 val isArm64 = hostArch == "aarch64" || hostArch == "arm64"
 
-// Windows installer metadata requires MAJOR.MINOR.BUILD even though the app's public version is
-// intentionally displayed without a patch number (1.7 rather than 1.7.0).
-// The build number is the desktop version code; it also keeps "-beta1" out of the numeric installer version.
-val desktopVersionCode = 29
+// Native installer metadata requires MAJOR.MINOR.BUILD. Release workflows use the tag's patch as BUILD;
+// local prerelease builds retain the existing 1.8-beta1.29 default, with the beta suffix excluded.
+val desktopVersionCode: Int = providers.gradleProperty("bitchord.desktopVersionCode").orNull?.let { value ->
+    value.toIntOrNull()?.takeIf { it in 0..65535 }
+        ?: error("bitchord.desktopVersionCode must be an integer from 0 through 65535")
+} ?: 29
 val nativePackageVersion = appVersion.substringBefore('-').split('.').take(2).joinToString(".") + ".$desktopVersionCode"
 
 // FFmpeg decodes audio; see DesktopAudioDecoder.

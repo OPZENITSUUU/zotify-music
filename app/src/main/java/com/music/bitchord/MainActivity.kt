@@ -163,6 +163,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.settings.UiSkin
+import com.music.bitchord.data.settings.AppearanceSkinState
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.components.SpotifyImportAlert
 import com.music.bitchord.ui.screens.WearOsScreen
@@ -382,6 +383,7 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val uiSkin by AppSettings.uiSkin.collectAsStateWithLifecycle()
+            val skinPureBlack by AppearanceSkinState.pureBlack.collectAsStateWithLifecycle()
             val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
@@ -417,7 +419,7 @@ class MainActivity : AppCompatActivity() {
             // Mochy follows its reference's dark-only visual system. The selected
             // skin is observed from the existing preference flow, so switching
             // updates the whole Compose tree without touching playback state.
-            val effectiveDarkTheme = darkTheme || uiSkin == UiSkin.MOCHY
+            val effectiveDarkTheme = darkTheme || uiSkin == UiSkin.MOCHY || skinPureBlack == true
             BitChordTheme(darkTheme = effectiveDarkTheme, uiSkin = uiSkin) {
                 // The glass surfaces sample this layer, and a layer records only
                 // what is drawn into it — which, for BitChord, is a page that

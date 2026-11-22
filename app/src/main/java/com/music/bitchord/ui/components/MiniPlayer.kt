@@ -3,6 +3,7 @@ package com.music.bitchord.ui.components
 import com.music.zotifymusic.R
 import com.music.bitchord.data.settings.UiSkin
 import com.music.bitchord.ui.theme.LocalUiSkin
+import com.music.bitchord.ui.theme.LocalArtworkCornerRadius
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -368,6 +369,7 @@ fun MiniPlayer(
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
     // directly below it, so the two shapes are the same family.
     val uiSkin = LocalUiSkin.current
+    val artworkCorner = LocalArtworkCornerRadius.current ?: ART_CORNER
     val shape = remember(uiSkin) {
         if (uiSkin == UiSkin.MOCHY) RoundedCornerShape(22.dp) else RoundedCornerShape(percent = 50)
     }
@@ -419,9 +421,9 @@ fun MiniPlayer(
                 contentDescription = null,
                 modifier = Modifier
                     .size(40.dp)
-                    .playerDockArt(dock, ART_CORNER)
-                    .clip(RoundedCornerShape(ART_CORNER))
-                    .thumbnailBorder(RoundedCornerShape(ART_CORNER))
+                    .playerDockArt(dock, artworkCorner)
+                    .clip(RoundedCornerShape(artworkCorner))
+                    .thumbnailBorder(RoundedCornerShape(artworkCorner))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             Spacer(Modifier.width(10.dp))

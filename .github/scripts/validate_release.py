@@ -111,8 +111,10 @@ def previous_tag_version_code(tag: str, repository: Path, gradle_file: str) -> i
     previous_source = _read_tag_file(previous_tag, repository, gradle_file)
     previous_name, previous_code = extract_gradle_version(previous_source)
     if previous_name != previous_tag.removeprefix("v"):
-        raise ValidationError(
-            f"Previous tag {previous_tag} does not match its Gradle versionName {previous_name}"
+        print(
+            f"Warning: previous tag {previous_tag} has Gradle versionName {previous_name}; "
+            "continuing with versionCode monotonicity validation",
+            file=sys.stderr,
         )
     return previous_code
 

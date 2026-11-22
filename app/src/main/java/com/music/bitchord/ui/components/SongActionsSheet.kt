@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.ui.theme.LocalArtworkCornerRadius
+
 import com.music.zotifymusic.R
 
 import android.net.Uri
@@ -928,6 +930,7 @@ internal fun SheetTrackHeader(
     modifier: Modifier = Modifier,
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
+    val artworkShape = RoundedCornerShape(LocalArtworkCornerRadius.current ?: 8.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -939,8 +942,8 @@ internal fun SheetTrackHeader(
             contentDescription = null,
             modifier = Modifier
                 .size(52.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .thumbnailBorder(RoundedCornerShape(8.dp))
+                .clip(artworkShape)
+                .thumbnailBorder(artworkShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Spacer(Modifier.width(14.dp))

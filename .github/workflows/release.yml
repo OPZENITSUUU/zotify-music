@@ -1,4 +1,4 @@
-name: Zotify Music Android Release
+name: Zotify Music Release
 
 on:
   push:
@@ -12,16 +12,24 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: zotify-release-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and publish signed Android APK
+  validate:
+    name: Validate release tag and policy
     runs-on: ubuntu-22.04
+    outputs:
+      release_tag: ${{ steps.release_validation.outputs.release_tag }}
+      version_code: ${{ steps.release_validation.outputs.version_code }}
+      minimum_supported_version_code: ${{ steps.release_validation.outputs.minimum_supported_version_code }}
+      tv_version_code: ${{ steps.release_validation.outputs.tv_version_code }}
+      tv_version_name: ${{ steps.release_validation.outputs.tv_version_name }}
+      desktop_app_version: ${{ steps.desktop_metadata.outputs.app_version }}
+      desktop_version_code: ${{ steps.desktop_metadata.outputs.desktop_version_code }}
     steps:
       - name: Check out release source
         uses: actions/checkout@v4
@@ -29,7 +37,7 @@ jobs:
           ref: ${{ inputs.release_tag || github.ref }}
           fetch-depth: 0
 
-      - name: Validate tag, versionCode, latest release, and duplicate status
+      - name: Validate tag, signing readiness, latest release, and duplicate status
         id: release_validation
         shell: bash
         env:
@@ -47,6 +55,12 @@ jobs:
             echo "::error::A force-updated release tag cannot be published."
             exit 1
           fi
+          checked_out_sha="$(git rev-parse 'HEAD^{commit}')"
+          tag_sha="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          if [[ "$checked_out_sha" != "$tag_sha" ]]; then
+            echo "::error::Checked-out source does not match the requested release tag."
+            exit 1
+          fi
 
           python3 .github/scripts/validate_release.py \
             --tag "$RELEASE_TAG" \
@@ -62,7 +76,7 @@ jobs:
             -w '%{http_code}' "${headers[@]}" "$api/releases/tags/$RELEASE_TAG")"
           case "$release_status" in
             200)
-              echo "::error::A GitHub Release already exists for $RELEASE_TAG; refusing to overwrite it."
+              echo "::error::A GitHub Release already exists for $RELEASE_TAG; the new-release workflow will not overwrite it."
               exit 1
               ;;
             404) ;;
@@ -90,40 +104,45 @@ jobs:
           esac
 
           version_code="$(python3 .github/scripts/validate_release.py \
-            --tag "$RELEASE_TAG" \
-            --gradle-file build.gradle.kts \
-            --tv-gradle-file tv/build.gradle.kts \
-            --repository . \
-            --latest-release-tag "$latest_tag" \
-            --print-version-code)"
-          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
-
+            --tag "$RELEASE_TAG" --gradle-file build.gradle.kts \
+            --tv-gradle-file tv/build.gradle.kts --repository . \
+            --latest-release-tag "$latest_tag" --print-version-code)"
           minimum_supported_version_code="$(python3 .github/scripts/validate_release.py \
-            --tag "$RELEASE_TAG" \
-            --gradle-file build.gradle.kts \
-            --tv-gradle-file tv/build.gradle.kts \
-            --repository . \
-            --latest-release-tag "$latest_tag" \
-            --print-minimum-supported-version-code)"
-          echo "minimum_supported_version_code=$minimum_supported_version_code" >> "$GITHUB_OUTPUT"
-
+            --tag "$RELEASE_TAG" --gradle-file build.gradle.kts \
+            --tv-gradle-file tv/build.gradle.kts --repository . \
+            --latest-release-tag "$latest_tag" --print-minimum-supported-version-code)"
           tv_version_code="$(python3 .github/scripts/validate_release.py \
-            --tag "$RELEASE_TAG" \
-            --gradle-file build.gradle.kts \
-            --tv-gradle-file tv/build.gradle.kts \
-            --repository . \
-            --latest-release-tag "$latest_tag" \
-            --print-tv-version-code)"
-          echo "tv_version_code=$tv_version_code" >> "$GITHUB_OUTPUT"
-
+            --tag "$RELEASE_TAG" --gradle-file build.gradle.kts \
+            --tv-gradle-file tv/build.gradle.kts --repository . \
+            --latest-release-tag "$latest_tag" --print-tv-version-code)"
           tv_version_name="$(python3 .github/scripts/validate_release.py \
-            --tag "$RELEASE_TAG" \
-            --gradle-file build.gradle.kts \
-            --tv-gradle-file tv/build.gradle.kts \
-            --repository . \
-            --latest-release-tag "$latest_tag" \
-            --print-tv-version-name)"
-          echo "tv_version_name=$tv_version_name" >> "$GITHUB_OUTPUT"
+            --tag "$RELEASE_TAG" --gradle-file build.gradle.kts \
+            --tv-gradle-file tv/build.gradle.kts --repository . \
+            --latest-release-tag "$latest_tag" --print-tv-version-name)"
+          {
+            printf 'release_tag=%s\n' "$RELEASE_TAG"
+            printf 'version_code=%s\n' "$version_code"
+            printf 'minimum_supported_version_code=%s\n' "$minimum_supported_version_code"
+            printf 'tv_version_code=%s\n' "$tv_version_code"
+            printf 'tv_version_name=%s\n' "$tv_version_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Calculate tag-specific Desktop package metadata
+        id: desktop_metadata
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: python3 .github/scripts/desktop_release_assets.py --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+
+  build_android:
+    name: Build and verify signed Android APKs
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -134,10 +153,20 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Write Android local.properties
+        shell: bash
+        env:
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=${LASTFM_API_KEY:-}" "LASTFM_SECRET=${LASTFM_SECRET:-}" > local.properties
+
       - name: Run Android unit tests
         run: ./gradlew :app:testProdDebugUnitTest
 
-      - name: Configure release signing
+      - name: Configure release signing and verify existing production identity
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -198,34 +227,51 @@ jobs:
       - name: Build signed production phone and TV APKs
         run: ./gradlew :app:assembleProdRelease :tv:assembleProdRelease
 
-      - name: Verify package, version, alignment, and signature
+      - name: Verify package, version, alignment, and signing certificate
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-          EXPECTED_VERSION_CODE: ${{ steps.release_validation.outputs.version_code }}
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+          EXPECTED_VERSION_CODE: ${{ needs.validate.outputs.version_code }}
         run: |
           set -euo pipefail
-          apk=app/build/outputs/apk/prod/release/app-prod-universal-release.apk
-          test -s "$apk"
           sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK path is unavailable}}"
           build_tools="$(find "$sdk/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           expected_version="${RELEASE_TAG#v}"
-          badging="$("$build_tools/aapt" dump badging "$apk")"
-          grep -F "package: name='com.zotifymusic.player'" <<< "$badging"
-          grep -F "versionName='$expected_version'" <<< "$badging"
-          grep -F "versionCode='$EXPECTED_VERSION_CODE'" <<< "$badging"
-          "$build_tools/zipalign" -c -v 4 "$apk"
-          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          expected_certificate="EAD01DEB09889B57D7C9E16E52811CE02E85754BD6C19A483AAF772A59C7EE30"
+          declare -A outputs=(
+            [app-prod-universal-release.apk]=Zotify.Music.apk
+            [app-prod-arm64-v8a-release.apk]=Zotify.Music_arm64-v8a.apk
+            [app-prod-armeabi-v7a-release.apk]=Zotify.Music_armeabi-v7a.apk
+          )
+          x86_apk="app/build/outputs/apk/prod/release/app-prod-x86_64-release.apk"
+          if [[ -s "$x86_apk" ]]; then
+            outputs[app-prod-x86_64-release.apk]=Zotify.Music_x86_64.apk
+          fi
           mkdir -p dist
-          cp "$apk" dist/Zotify.Music.apk
-          sha256sum dist/Zotify.Music.apk > dist/Zotify.Music.apk.sha256
-          sha256sum --check dist/Zotify.Music.apk.sha256
+          for filename in "${!outputs[@]}"; do
+            apk="app/build/outputs/apk/prod/release/$filename"
+            test -s "$apk"
+            badging="$("$build_tools/aapt" dump badging "$apk")"
+            grep -F "package: name='com.zotifymusic.player'" <<< "$badging"
+            grep -F "versionName='$expected_version'" <<< "$badging"
+            grep -F "versionCode='$EXPECTED_VERSION_CODE'" <<< "$badging"
+            "$build_tools/zipalign" -c -v 4 "$apk"
+            cert_output="$("$build_tools/apksigner" verify --verbose --print-certs "$apk")"
+            apk_certificate="$(awk -F': ' '/certificate SHA-256 digest/ {gsub(/:/, "", $2); print toupper($2); exit}' <<< "$cert_output")"
+            if [[ "$apk_certificate" != "$expected_certificate" ]]; then
+              echo "::error::APK signing certificate fingerprint mismatch for $filename"
+              exit 1
+            fi
+            asset="${outputs[$filename]}"
+            cp "$apk" "dist/$asset"
+            (cd dist && sha256sum "$asset" > "$asset.sha256" && sha256sum --check "$asset.sha256")
+          done
 
-      - name: Verify production TV APK and prepare TV release assets
+      - name: Verify production TV APK and prepare TV assets
         shell: bash
         env:
-          TV_VERSION_NAME: ${{ steps.release_validation.outputs.tv_version_name }}
-          TV_VERSION_CODE: ${{ steps.release_validation.outputs.tv_version_code }}
+          TV_VERSION_NAME: ${{ needs.validate.outputs.tv_version_name }}
+          TV_VERSION_CODE: ${{ needs.validate.outputs.tv_version_code }}
         run: |
           set -euo pipefail
           mapfile -t tv_apks < <(find tv/build/outputs/apk/prod/release -maxdepth 1 -type f -name '*universal*.apk' -print)
@@ -242,52 +288,216 @@ jobs:
           grep -F "versionName='$TV_VERSION_NAME'" <<< "$badging"
           grep -F "versionCode='$TV_VERSION_CODE'" <<< "$badging"
           "$build_tools/zipalign" -c -v 4 "$apk"
-          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          cert_output="$("$build_tools/apksigner" verify --verbose --print-certs "$apk")"
+          apk_certificate="$(awk -F': ' '/certificate SHA-256 digest/ {gsub(/:/, "", $2); print toupper($2); exit}' <<< "$cert_output")"
+          expected_certificate="EAD01DEB09889B57D7C9E16E52811CE02E85754BD6C19A483AAF772A59C7EE30"
+          if [[ "$apk_certificate" != "$expected_certificate" ]]; then
+            echo "::error::TV APK signing certificate fingerprint mismatch"
+            exit 1
+          fi
+          asset="ZotifyMusicTV-v${TV_VERSION_NAME}.apk"
           mkdir -p dist
-          tv_asset="dist/ZotifyMusicTV-v${TV_VERSION_NAME}.apk"
-          cp "$apk" "$tv_asset"
-          sha256sum "$tv_asset" > "${tv_asset}.sha256"
-          sha256sum --check "${tv_asset}.sha256"
+          cp "$apk" "dist/$asset"
+          (cd dist && sha256sum "$asset" > "$asset.sha256" && sha256sum --check "$asset.sha256")
 
-      - name: Prepare release notes
+      - name: Upload verified Android assets for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-android
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build_desktop:
+    name: Build Desktop packages · ${{ matrix.platform }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            platform: linux
+          - runner: windows-latest
+            platform: windows
+          - runner: macos-latest
+            platform: macos
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_tag }}
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Write Desktop local.properties
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
-          RELEASE_VERSION_CODE: ${{ steps.release_validation.outputs.version_code }}
-          MINIMUM_SUPPORTED_VERSION_CODE: ${{ steps.release_validation.outputs.minimum_supported_version_code }}
-          TV_VERSION_NAME: ${{ steps.release_validation.outputs.tv_version_name }}
-          TV_VERSION_CODE: ${{ steps.release_validation.outputs.tv_version_code }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
           set -euo pipefail
+          umask 077
+          printf '%s\n' "LASTFM_API_KEY=${LASTFM_API_KEY:-}" "LASTFM_SECRET=${LASTFM_SECRET:-}" > local.properties
+
+      - name: Install Linux native package tools
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fakeroot rpm
+          command -v fakeroot
+          command -v rpmbuild
+
+      - name: Ensure WiX Toolset is available
+        if: matrix.platform == 'windows'
+        shell: powershell
+        run: |
+          $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+          if (-not $candle) {
+            choco install wixtoolset --yes --no-progress
+            $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $candle) {
+            $candleFile = Get-ChildItem 'C:\Program Files (x86)\WiX Toolset*' -Filter candle.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candleFile) {
+              $candle = $candleFile.FullName
+            }
+          }
+          if (-not $candle) { throw 'WiX Toolset candle.exe was not found; cannot package MSI/EXE.' }
+          $wixBin = Split-Path $candle.Source
+          if (-not $wixBin) { $wixBin = Split-Path $candle }
+          Add-Content -Path $env:GITHUB_PATH -Value $wixBin
+          if (-not (Test-Path (Join-Path $wixBin 'light.exe'))) { throw 'WiX light.exe is unavailable.' }
+
+      - name: Prepare tag-specific Desktop installer version
+        id: desktop_metadata
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+        run: python .github/scripts/desktop_release_assets.py --tag "$env:RELEASE_TAG" --gradle-file desktopApp/build.gradle.kts --apply --github-output "$env:GITHUB_OUTPUT"
+        if: matrix.platform == 'windows'
+        shell: powershell
+
+      - name: Prepare tag-specific Desktop installer version (Linux/macOS)
+        id: desktop_metadata_unix
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+        run: python3 .github/scripts/desktop_release_assets.py --tag "$RELEASE_TAG" --gradle-file desktopApp/build.gradle.kts --apply --github-output "$GITHUB_OUTPUT"
+
+      - name: Build Linux packages
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+          DESKTOP_VERSION_CODE: ${{ needs.validate.outputs.desktop_version_code }}
+        run: ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm "-Pbitchord.version=$DESKTOP_VERSION" "-Pbitchord.desktopVersionCode=$DESKTOP_VERSION_CODE"
+
+      - name: Build Windows packages
+        if: matrix.platform == 'windows'
+        shell: powershell
+        env:
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+          DESKTOP_VERSION_CODE: ${{ needs.validate.outputs.desktop_version_code }}
+        run: .\gradlew.bat :desktopApp:packageExe :desktopApp:packageMsi "-Pbitchord.version=$env:DESKTOP_VERSION" "-Pbitchord.desktopVersionCode=$env:DESKTOP_VERSION_CODE"
+
+      - name: Build macOS packages
+        if: matrix.platform == 'macos'
+        shell: bash
+        env:
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+          DESKTOP_VERSION_CODE: ${{ needs.validate.outputs.desktop_version_code }}
+        run: ./gradlew :desktopApp:packageDmg :desktopApp:packagePkg "-Pbitchord.version=$DESKTOP_VERSION" "-Pbitchord.desktopVersionCode=$DESKTOP_VERSION_CODE"
+
+      - name: Collect Desktop packages and create checksums (Windows)
+        if: matrix.platform == 'windows'
+        shell: powershell
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+        run: python .github/scripts/desktop_release_assets.py --tag "$env:RELEASE_TAG" --platform windows --binaries-root desktopApp/build/compose/binaries/main --output-dir dist
+
+      - name: Collect Desktop packages and create checksums (Linux/macOS)
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: python3 .github/scripts/desktop_release_assets.py --tag "$RELEASE_TAG" --platform "$TARGET_PLATFORM" --binaries-root desktopApp/build/compose/binaries/main --output-dir dist
+
+      - name: Upload Desktop assets for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-desktop-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish verified release assets
+    needs: [validate, build_android, build_desktop]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified assets from all build jobs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify asset checksums and prepare release notes
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+          RELEASE_VERSION_CODE: ${{ needs.validate.outputs.version_code }}
+          MINIMUM_SUPPORTED_VERSION_CODE: ${{ needs.validate.outputs.minimum_supported_version_code }}
+          TV_VERSION_NAME: ${{ needs.validate.outputs.tv_version_name }}
+          TV_VERSION_CODE: ${{ needs.validate.outputs.tv_version_code }}
+          DESKTOP_VERSION: ${{ needs.validate.outputs.desktop_app_version }}
+        run: |
+          set -euo pipefail
+          test -d release-assets
+          shopt -s nullglob
+          checksums=(release-assets/*.sha256)
+          if (( ${#checksums[@]} == 0 )); then
+            echo "::error::No checksum sidecars were downloaded."
+            exit 1
+          fi
+          (cd release-assets && sha256sum --check *.sha256)
           {
             printf '## Zotify Music %s\n\n' "$RELEASE_TAG"
-            printf 'Zotify release of Zotify Music.\n'
             printf 'Android version code: %s\n' "$RELEASE_VERSION_CODE"
-            printf 'Android TV version name: %s\n' "$TV_VERSION_NAME"
-            printf 'Android TV version code: %s\n' "$TV_VERSION_CODE"
+            printf 'Android TV version: %s (code %s)\n' "$TV_VERSION_NAME" "$TV_VERSION_CODE"
+            printf 'Desktop package version: %s\n' "$DESKTOP_VERSION"
             if [[ "$MINIMUM_SUPPORTED_VERSION_CODE" -gt 0 ]]; then
               printf 'Minimum supported Android phone version code: %s\n' "$MINIMUM_SUPPORTED_VERSION_CODE"
             fi
-            printf '\n- Preserves the existing application ID; Android version code is %s.\n' "$RELEASE_VERSION_CODE"
-            printf '%s\n' '- Includes the Zotify updater endpoint and verifies release asset SHA-256 before install.'
-            printf '%s\n' '- Includes a SHA-256 checksum asset for the APK.'
-            printf '%s\n' '- Production APK signing is verified against the existing pinned signing identity.'
+            printf '\n- Includes signed universal and ABI-specific Android phone APKs, Android TV APK, and Linux, Windows, and macOS Desktop packages.\n'
+            printf '%s\n' '- Every downloadable binary includes a SHA-256 checksum sidecar.'
+            printf '%s\n' '- Android signing is verified against the existing pinned production certificate.'
+            printf '%s\n' '- Windows and macOS packages are not platform-code-signed; their operating systems may show security warnings.'
             printf '%s\n' '- Android still requires user approval to install APKs from the in-app updater.'
-          } > dist/release-notes.md
+          } > release-notes.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          name: Zotify Music ${{ inputs.release_tag || github.ref_name }}
+          tag_name: ${{ needs.validate.outputs.release_tag }}
+          name: Zotify Music ${{ needs.validate.outputs.release_tag }}
           draft: false
           make_latest: true
           fail_on_unmatched_files: true
-          files: |
-            dist/Zotify.Music.apk
-            dist/Zotify.Music.apk.sha256
-            dist/ZotifyMusicTV-v${{ steps.release_validation.outputs.tv_version_name }}.apk
-            dist/ZotifyMusicTV-v${{ steps.release_validation.outputs.tv_version_name }}.apk.sha256
-          body_path: dist/release-notes.md
+          files: release-assets/*
+          body_path: release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

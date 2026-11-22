@@ -1,0 +1,89 @@
+name: Publish Historical TV and Desktop Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing public release to receive assets"
+        required: true
+        type: choice
+        options:
+          - v1.0.1
+          - v1.0.2
+          - v1.0.3
+          - v1.0.4
+          - v1.0.5
+          - v1.0.6
+          - v1.0.7
+      build_run_id:
+        description: "Run ID of the successful Build Historical TV and Desktop Assets workflow"
+        required: true
+        type: string
+      manifest_sha256:
+        description: "Exact SHA-256 of the reviewed manifest.json from that build run"
+        required: true
+        type: string
+      confirmation:
+        description: "Type exactly: PUBLISH <release_tag> <manifest_sha256>"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-historical-assets-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify reviewed manifest and add only non-conflicting assets
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Require dispatch from the repository default branch
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]]; then
+            echo "::error::Historical release asset publication is allowed only from the repository default branch."
+            exit 1
+          fi
+
+      - name: Check out publication verifier from the default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Download the exact review artifact from the selected build run
+        uses: actions/download-artifact@v4
+        with:
+          name: historical-release-${{ inputs.release_tag }}
+          path: release-assets
+          run-id: ${{ inputs.build_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check release switch, reviewed manifest, exact confirmation, tag, and collision safety
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          MANIFEST_SHA256: ${{ inputs.manifest_sha256 }}
+          HISTORICAL_PUBLISH_CONFIRMATION: ${{ inputs.confirmation }}
+          RELEASES_ENABLED: ${{ vars.RELEASES_ENABLED }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/historical_release_backfill.py publish \
+            --tag "$RELEASE_TAG" \
+            --assets-dir release-assets \
+            --manifest release-assets/manifest.json \
+            --manifest-sha256 "$MANIFEST_SHA256" \
+            --build-run-id "$BUILD_RUN_ID"

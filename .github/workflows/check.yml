@@ -186,6 +186,9 @@ jobs:
 
       - run: chmod +x gradlew
 
+      - name: Release metadata regression tests
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+
       - name: Tests
         run: ./gradlew testDevDebugUnitTest
 

@@ -191,6 +191,7 @@ fun PlaylistPickerSheet(
 
 @Composable
 private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -> Unit) {
+    val artworkCorner = com.music.bitchord.ui.theme.LocalArtworkCornerRadius.current ?: 7.dp
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -203,8 +204,8 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
             contentDescription = null,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .thumbnailBorder(RoundedCornerShape(7.dp))
+                .clip(RoundedCornerShape(artworkCorner))
+                .thumbnailBorder(RoundedCornerShape(artworkCorner))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Spacer(Modifier.width(16.dp))
