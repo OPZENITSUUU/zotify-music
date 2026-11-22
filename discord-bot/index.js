@@ -16,6 +16,11 @@ app.use(express.json({ limit: "16kb" }));
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 let ready = false;
+// Discord exposes one gateway presence for the entire bot account. Keep a short
+// playback lease so one connected Zotify user cannot silently overwrite another.
+let activePresenceOwner = null;
+let activePresenceAt = 0;
+const PRESENCE_LEASE_MS = 90_000;
 
 // OAuth state/tickets are short-lived and single-use. The resulting session is
 // stateless HMAC-signed so a Render restart does not invalidate connected apps.
@@ -177,6 +182,11 @@ app.post("/presence", requireSession, (req, res) => {
   const artist = clean(body.artist, 70);
   if (!title) return res.status(400).json({ error: "title_required" });
 
+  const userId = req.discordSession.sub;
+  const now = Date.now();
+  if (activePresenceOwner && activePresenceOwner !== userId && now - activePresenceAt < PRESENCE_LEASE_MS) {
+    return res.status(409).json({ error: "bot_presence_in_use", message: "The shared Zotify bot profile is currently showing another connected listener.", scope: "shared_bot_account", retry_after_ms: Math.max(0, PRESENCE_LEASE_MS - (now - activePresenceAt)) });
+  }
   const paused = body.paused === true;
   const spotifySpoof = body.spotifySpoof === true;
   const activityName = spotifySpoof ? "Spotify" : (clean(body.activityName, 64) || "Zotify Music");
@@ -189,8 +199,8 @@ app.post("/presence", requireSession, (req, res) => {
   const activityType = spotifySpoof
     ? ActivityType.Listening
     : (activityTypeMap[clean(body.activityType, 20).toLowerCase()] ?? ActivityType.Listening);
-  const details = clean(body.details, 128) || title;
-  const state = clean(body.state, 128) || artist;
+  const details = clean(body.details, 128) || (body.useDetails === false ? artist : title);
+  const state = clean(body.state, 128) || (body.useDetails === false ? title : artist);
   const positionMs = Number.isFinite(Number(body.positionMs)) ? Math.max(0, Number(body.positionMs)) : 0;
   const durationMs = Number.isFinite(Number(body.durationMs)) ? Math.max(0, Number(body.durationMs)) : 0;
   const activity = { name: activityName, type: activityType, details, state };
@@ -202,18 +212,26 @@ app.post("/presence", requireSession, (req, res) => {
     status: paused ? "idle" : (["online", "idle", "dnd"].includes(body.status) ? body.status : "online"),
     activities: [activity],
   });
+  activePresenceOwner = userId;
+  activePresenceAt = now;
   return res.json({
     ok: true,
     account: req.discordSession.username,
     activity: { name: activityName, details, state, type: activityType },
-    note: "Discord bot presence is shared by the bot account; it does not change a user's personal profile.",
+    scope: "shared_bot_account",
+    note: "This activity appears on the Zotify bot profile and is shared by all connected listeners. Discord does not let a bot set a user's personal Rich Presence.",
   });
 });
 
-app.post("/clear", requireSession, (_req, res) => {
+app.post("/clear", requireSession, (req, res) => {
   if (!ready || !client.user) return res.status(503).json({ error: "bot_not_ready" });
+  if (activePresenceOwner !== req.discordSession.sub) {
+    return res.json({ ok: true, cleared: false, reason: "not_current_presence_owner" });
+  }
   client.user.setPresence({ status: "online", activities: [] });
-  return res.json({ ok: true });
+  activePresenceOwner = null;
+  activePresenceAt = 0;
+  return res.json({ ok: true, cleared: true });
 });
 
 app.listen(PORT, "0.0.0.0", () => console.log(`HTTP server listening on ${PORT}`));
