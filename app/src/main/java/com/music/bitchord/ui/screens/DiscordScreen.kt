@@ -164,7 +164,7 @@ fun DiscordScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val token by AppSettings.discordToken.collectAsStateWithLifecycle()
+    val sessionToken by AppSettings.discordSessionToken.collectAsStateWithLifecycle()
     val username by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val name by AppSettings.discordName.collectAsStateWithLifecycle()
     val avatar by AppSettings.discordAvatar.collectAsStateWithLifecycle()
@@ -175,31 +175,10 @@ fun DiscordScreen(
     val status by AppSettings.discordStatus.collectAsStateWithLifecycle()
     val activityType by AppSettings.discordActivityType.collectAsStateWithLifecycle()
     val activityName by AppSettings.discordActivityName.collectAsStateWithLifecycle()
-    val infoDismissed by AppSettings.discordInfoDismissed.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
-    val connected = token.isNotEmpty()
+    val connected = sessionToken.isNotEmpty()
     val discordIcon = ImageVector.vectorResource(R.drawable.ic_discord)
-
-    // Refreshes the cached profile whenever the connected account changes. A
-    // failure is left to stand rather than clearing the cache: the usual reason
-    // for one is being offline, and blanking the name every time the phone loses
-    // signal would read as having been signed out.
-    LaunchedEffect(token) {
-        if (token.isEmpty()) {
-            AppSettings.setDiscordAccount("", "", null)
-            return@LaunchedEffect
-        }
-        withContext(Dispatchers.IO) {
-            KizzyRPC.getUserInfo(
-                token,
-                SuperProperties.userAgent,
-                SuperProperties.superPropertiesBase64,
-            ).onSuccess {
-                AppSettings.setDiscordAccount(it.username, it.name, it.avatar)
-            }
-        }
-    }
 
     Column(
         modifier = modifier
@@ -226,27 +205,20 @@ fun DiscordScreen(
 
         if (!connected) {
             SettingsGroup(
-                footer = stringResource(R.string.discord_sign_in_footer),
+                footer = "Connect with Discord OAuth. Your Discord password and Discord account token are never entered into Zotify.",
             ) {
                 SettingsRow(
-                    icon = Icons.Rounded.Key,
-                    title = stringResource(R.string.enter_token_instead),
-                    subtitle = stringResource(R.string.enter_token_instead_subtitle),
-                    onClick = { onOpenDialog(DiscordDialog.TOKEN) },
+                    icon = discordIcon,
+                    title = "Connect with Discord",
+                    subtitle = "Authorize the official Zotify bot",
+                    onClick = onOpenLogin,
                 )
             }
         }
 
-        AnimatedVisibility(visible = !infoDismissed) {
-            NoticeCard(
-                text = stringResource(R.string.discord_token_warning),
-                onDismiss = { AppSettings.setDiscordInfoDismissed(true) },
-            )
-        }
-
         SettingsGroup(
             header = stringResource(R.string.rich_presence),
-            footer = stringResource(R.string.discord_presence_footer),
+            footer = "Activity is published by the Zotify Music bot, not as your personal Discord status. Discord bots support text-only activity.",
         ) {
             SettingsRow(
                 icon = discordIcon,
