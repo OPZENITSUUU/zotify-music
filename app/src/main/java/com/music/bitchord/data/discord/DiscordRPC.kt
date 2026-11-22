@@ -65,6 +65,8 @@ class DiscordRPC(private val sessionToken: String) {
             put("activityType", activityType)
             put("activityName", activityName)
             put("status", status)
+            put("positionMs", positionMs.coerceAtLeast(0L))
+            put("durationMs", durationMs.coerceAtLeast(0L))
         })
     }
 
