@@ -171,8 +171,8 @@
     <string name="try_again">Try Again</string>
     <string name="open_releases_page">Open Releases Page</string>
     <string name="whats_new">What’s new</string>
-    <string name="whats_new_subtitle" translatable="false">See the highlights in Zotify Music v1.11</string>
-    <string name="whats_new_title" translatable="false">What’s new in Zotify Music v1.11</string>
+    <string name="whats_new_subtitle" translatable="false">See the highlights in Zotify Music v1.11.16</string>
+    <string name="whats_new_title" translatable="false">What’s new in Zotify Music v1.11.16</string>
     <string-array name="whats_new_v1_11" translatable="false">
         <item>Mochy-compatible Appearance Skin Manager: import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.</item>
         <item>Review skin metadata and supported or unsupported settings before installing a pack.</item>
