@@ -86,6 +86,8 @@ class DiscordRPC(
             .put("application_id", APPLICATION_ID)
             .put("details", details)
             .put("state", state)
+            // 2 = Details (song-first); 1 = State (artist-first).
+            .put("status_display_type", if (useDetails) 2 else 1)
         val registeredArtwork = artworkUrl?.takeIf { it.startsWith("https://") }?.let { registerExternalAsset(it) }
         if (!registeredArtwork.isNullOrBlank()) {
             activity.put("assets", JSONObject()
