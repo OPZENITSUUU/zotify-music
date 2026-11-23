@@ -721,6 +721,14 @@ object AppSettings {
     val discordButton2Text = MutableStateFlow("")
     val discordButton2Visible = MutableStateFlow(true)
 
+    // Mochy-style custom text and destination fields. Blank values keep the
+    // current track-derived defaults.
+    val discordCustomDetails = MutableStateFlow("")
+    val discordCustomState = MutableStateFlow("")
+    val discordLargeImageText = MutableStateFlow("")
+    val discordButton1Url = MutableStateFlow("")
+    val discordButton2Url = MutableStateFlow("")
+
     /** The notice about what connecting an account actually does has been read. */
     val discordInfoDismissed = MutableStateFlow(false)
 
@@ -1008,6 +1016,11 @@ object AppSettings {
         discordButton1Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_1_VISIBLE, true)
         discordButton2Text.value = prefs.getString(KEY_DISCORD_BUTTON_2_TEXT, "").orEmpty()
         discordButton2Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, true)
+        discordCustomDetails.value = prefs.getString(KEY_DISCORD_CUSTOM_DETAILS, "").orEmpty()
+        discordCustomState.value = prefs.getString(KEY_DISCORD_CUSTOM_STATE, "").orEmpty()
+        discordLargeImageText.value = prefs.getString(KEY_DISCORD_LARGE_IMAGE_TEXT, "").orEmpty()
+        discordButton1Url.value = prefs.getString(KEY_DISCORD_BUTTON_1_URL, "").orEmpty()
+        discordButton2Url.value = prefs.getString(KEY_DISCORD_BUTTON_2_URL, "").orEmpty()
         discordInfoDismissed.value = prefs.getBoolean(KEY_DISCORD_INFO_DISMISSED, false)
     }
 
@@ -1783,6 +1796,31 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, value).apply()
     }
 
+    fun setDiscordCustomDetails(value: String) {
+        discordCustomDetails.value = value
+        prefs.edit().putString(KEY_DISCORD_CUSTOM_DETAILS, value).apply()
+    }
+
+    fun setDiscordCustomState(value: String) {
+        discordCustomState.value = value
+        prefs.edit().putString(KEY_DISCORD_CUSTOM_STATE, value).apply()
+    }
+
+    fun setDiscordLargeImageText(value: String) {
+        discordLargeImageText.value = value
+        prefs.edit().putString(KEY_DISCORD_LARGE_IMAGE_TEXT, value).apply()
+    }
+
+    fun setDiscordButton1Url(value: String) {
+        discordButton1Url.value = value
+        prefs.edit().putString(KEY_DISCORD_BUTTON_1_URL, value).apply()
+    }
+
+    fun setDiscordButton2Url(value: String) {
+        discordButton2Url.value = value
+        prefs.edit().putString(KEY_DISCORD_BUTTON_2_URL, value).apply()
+    }
+
     fun setDiscordInfoDismissed(value: Boolean) {
         discordInfoDismissed.value = value
         prefs.edit().putBoolean(KEY_DISCORD_INFO_DISMISSED, value).apply()
@@ -2212,6 +2250,11 @@ object AppSettings {
     private const val KEY_DISCORD_BUTTON_1_VISIBLE = "discord_button_1_visible"
     private const val KEY_DISCORD_BUTTON_2_TEXT = "discord_button_2_text"
     private const val KEY_DISCORD_BUTTON_2_VISIBLE = "discord_button_2_visible"
+    private const val KEY_DISCORD_CUSTOM_DETAILS = "discord_custom_details"
+    private const val KEY_DISCORD_CUSTOM_STATE = "discord_custom_state"
+    private const val KEY_DISCORD_LARGE_IMAGE_TEXT = "discord_large_image_text"
+    private const val KEY_DISCORD_BUTTON_1_URL = "discord_button_1_url"
+    private const val KEY_DISCORD_BUTTON_2_URL = "discord_button_2_url"
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
