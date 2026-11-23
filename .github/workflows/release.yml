@@ -221,7 +221,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
-          name: Zotify Music ${{ inputs.release_tag || github.ref_name }}
+          name: Zotify Music 1.11.5 reworked
           draft: false
           make_latest: true
           fail_on_unmatched_files: true
@@ -235,7 +235,7 @@ jobs:
             dist/ZotifyMusicTV_armeabi-v7a.apk
             dist/ZotifyMusicTV_x86_64.apk
           body: |
-            ## Zotify Music ${{ inputs.release_tag || github.ref_name }}
+            ## Zotify Music 1.11.5 reworked
 
             Android version code: ${{ steps.release_validation.outputs.version_code }}
 
