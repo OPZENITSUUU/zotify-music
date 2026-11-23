@@ -7069,6 +7069,15 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.discordActivityName,
                 AppSettings.discordSpotifySpoof,
                 AppSettings.playbackSpeed,
+                AppSettings.discordCustomDetails,
+                AppSettings.discordCustomState,
+                AppSettings.discordLargeImageText,
+                AppSettings.discordButton1Text,
+                AppSettings.discordButton1Visible,
+                AppSettings.discordButton1Url,
+                AppSettings.discordButton2Text,
+                AppSettings.discordButton2Visible,
+                AppSettings.discordButton2Url,
             ) { it.toList() }
                 .distinctUntilChanged()
                 // Dropped so the collector's first emission — which arrives at
@@ -7175,6 +7184,11 @@ class PlaybackService : MediaLibraryService() {
                 button1Visible = AppSettings.discordButton1Visible.value,
                 button2Text = AppSettings.discordButton2Text.value,
                 button2Visible = AppSettings.discordButton2Visible.value,
+                customDetails = AppSettings.discordCustomDetails.value,
+                customState = AppSettings.discordCustomState.value,
+                largeImageText = AppSettings.discordLargeImageText.value,
+                button1Url = AppSettings.discordButton1Url.value,
+                button2Url = AppSettings.discordButton2Url.value,
             ).onFailure {
                 TrackLog.d("BitChord", "Discord presence failed: ${it.message}", about = song.videoId)
             }
