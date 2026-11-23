@@ -66,6 +66,7 @@ import com.music.bitchord.ui.components.ChoiceAlert
 import com.music.bitchord.ui.components.TextValueAlert
 import com.music.bitchord.ui.components.thumbnailBorder
 import dev.chrisbanes.haze.HazeState
+import java.net.URLEncoder
 import java.util.Locale
 
 /** Which dot Discord draws on the avatar, and what it tells other people. */
@@ -419,6 +420,12 @@ fun DiscordScreen(
                 customDetails = customDetails,
                 customState = customState,
                 audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
+                button1Text = button1Text,
+                button1Visible = button1Visible,
+                button1Url = button1Url,
+                button2Text = button2Text,
+                button2Visible = button2Visible,
+                button2Url = button2Url,
             )
         }
 
@@ -586,7 +593,14 @@ private fun RichPresencePreview(
     customDetails: String,
     customState: String,
     audioQuality: String?,
+    button1Text: String,
+    button1Visible: Boolean,
+    button1Url: String,
+    button2Text: String,
+    button2Visible: Boolean,
+    button2Url: String,
 ) {
+    val context = LocalContext.current
     val title = song?.title ?: stringResource(R.string.widget_preview_title)
     val artist = song?.artist ?: stringResource(R.string.widget_preview_artist)
     val details = customDetails.ifBlank { if (useDetails) title else artist }
@@ -647,8 +661,26 @@ private fun RichPresencePreview(
                 ProgressLine(positionMs = positionMs, durationMs = durationMs)
             }
         }
-
-
+        val query = URLEncoder.encode("$title $artist", Charsets.UTF_8.name())
+        val firstTarget = button1Url.takeIf { it.startsWith("https://", ignoreCase = true) }
+            ?: song?.videoId?.takeIf { it.isNotBlank() }?.let { "https://music.youtube.com/watch?v=$it" }
+            ?: "https://music.youtube.com/search?q=$query"
+        val secondTarget = button2Url.takeIf { it.startsWith("https://", ignoreCase = true) }
+            ?: "https://open.spotify.com/search/$query"
+        if (button1Visible || button2Visible) {
+            Spacer(Modifier.height(12.dp))
+            if (button1Visible) {
+                PresenceButton(button1Text.ifBlank { "YouTube Music" }, enabled = true) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, firstTarget.toUri())) }
+                }
+            }
+            if (button2Visible) {
+                Spacer(Modifier.height(6.dp))
+                PresenceButton(button2Text.ifBlank { "Spotify" }, enabled = true) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, secondTarget.toUri())) }
+                }
+            }
+        }
     }
 }
 
