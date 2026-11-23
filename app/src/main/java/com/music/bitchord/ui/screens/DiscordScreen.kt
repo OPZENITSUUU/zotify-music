@@ -89,7 +89,11 @@ enum class DiscordActivityKind(val value: String, val verb: String, val label: S
  * rendered by the activity, above the tab bar and mini player, rather than
  * inside the scrolling screen where a full-screen scrim would be trapped.
  */
-enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME, BUTTON_1_TEXT, BUTTON_2_TEXT }
+enum class DiscordDialog {
+    STATUS, ACTIVITY_TYPE, ACTIVITY_NAME,
+    CUSTOM_DETAILS, CUSTOM_STATE, LARGE_IMAGE_TEXT,
+    BUTTON_1_TEXT, BUTTON_2_TEXT, BUTTON_1_URL, BUTTON_2_URL,
+}
 
 private fun statusOf(value: String) =
     DiscordPresenceStatus.entries.firstOrNull { it.value == value } ?: DiscordPresenceStatus.ONLINE
@@ -172,6 +176,11 @@ fun DiscordScreen(
     val button1Visible by AppSettings.discordButton1Visible.collectAsStateWithLifecycle()
     val button2Text by AppSettings.discordButton2Text.collectAsStateWithLifecycle()
     val button2Visible by AppSettings.discordButton2Visible.collectAsStateWithLifecycle()
+    val customDetails by AppSettings.discordCustomDetails.collectAsStateWithLifecycle()
+    val customState by AppSettings.discordCustomState.collectAsStateWithLifecycle()
+    val largeImageText by AppSettings.discordLargeImageText.collectAsStateWithLifecycle()
+    val button1Url by AppSettings.discordButton1Url.collectAsStateWithLifecycle()
+    val button2Url by AppSettings.discordButton2Url.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
     val connected = sessionToken.isNotEmpty()
@@ -319,8 +328,33 @@ fun DiscordScreen(
                     )
                 }
                 SettingsGroup(
+                    header = "Custom text & artwork",
+                    footer = "Leave a field blank to use the current track's title, artist, or artwork text. Discord displays two track text lines; the progress bar is not a third text field.",
+                ) {
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Rounded.Label,
+                        title = "Details line",
+                        subtitle = customDetails.ifBlank { if (useDetails) "Track title (automatic)" else "Artist (automatic)" },
+                        onClick = { onOpenDialog(DiscordDialog.CUSTOM_DETAILS) },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Rounded.Label,
+                        title = "State line",
+                        subtitle = customState.ifBlank { if (useDetails) "Artist (automatic)" else "Track title (automatic)" },
+                        onClick = { onOpenDialog(DiscordDialog.CUSTOM_STATE) },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Image,
+                        title = "Artwork hover text",
+                        subtitle = largeImageText.ifBlank { "Track title (automatic)" },
+                        onClick = { onOpenDialog(DiscordDialog.LARGE_IMAGE_TEXT) },
+                    )
+                }
+                SettingsGroup(
                     header = "Action buttons",
-                    footer = "Buttons open the current track in YouTube Music or Spotify. You can change their labels and turn either one off.",
+                    footer = "Buttons open the current track in YouTube Music or Spotify. Change each label and destination, or turn either one off.",
                 ) {
                     SettingsRow(
                         icon = Icons.Rounded.SmartButton,
@@ -336,6 +370,13 @@ fun DiscordScreen(
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_1_TEXT) },
                     )
+                    SettingsRow(
+                        icon = Icons.Rounded.Link,
+                        title = "Button 1 URL",
+                        subtitle = button1Url.ifBlank { "YouTube Music track/search (automatic)" },
+                        enabled = connected && rpcEnabled && button1Visible,
+                        onClick = { onOpenDialog(DiscordDialog.BUTTON_1_URL) },
+                    )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Rounded.SmartButton,
@@ -350,6 +391,13 @@ fun DiscordScreen(
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_2_TEXT) },
+                    )
+                    SettingsRow(
+                        icon = Icons.Rounded.Link,
+                        title = "Button 2 URL",
+                        subtitle = button2Url.ifBlank { "Spotify search (automatic)" },
+                        enabled = connected && rpcEnabled && button2Visible,
+                        onClick = { onOpenDialog(DiscordDialog.BUTTON_2_URL) },
                     )
                 }
             }
@@ -725,6 +773,81 @@ fun DiscordDialogHost(
                     AppSettings.setDiscordActivityType(it.value)
                     onDismiss()
                 },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.CUSTOM_DETAILS -> {
+            val current by AppSettings.discordCustomDetails.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Custom details line",
+                message = "Overrides the first track text line. Leave blank to follow the Lead with song setting.",
+                placeholder = "Track title or custom text",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordCustomDetails(input.trim().take(128)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.CUSTOM_STATE -> {
+            val current by AppSettings.discordCustomState.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Custom state line",
+                message = "Overrides the second track text line. Leave blank to show the other track field.",
+                placeholder = "Artist or custom text",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordCustomState(input.trim().take(96)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.LARGE_IMAGE_TEXT -> {
+            val current by AppSettings.discordLargeImageText.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Artwork hover text",
+                message = "Text shown when someone hovers over the large album artwork.",
+                placeholder = "Track title",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordLargeImageText(input.trim().take(128)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.BUTTON_1_URL -> {
+            val current by AppSettings.discordButton1Url.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Button 1 destination",
+                message = "Use a full HTTPS link. Leave blank for the current track's YouTube Music link or search.",
+                placeholder = "https://music.youtube.com/...",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordButton1Url(input.trim().take(512)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.BUTTON_2_URL -> {
+            val current by AppSettings.discordButton2Url.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Button 2 destination",
+                message = "Use a full HTTPS link. Leave blank for the current track's Spotify search.",
+                placeholder = "https://open.spotify.com/...",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordButton2Url(input.trim().take(512)); onDismiss() },
                 onDismiss = onDismiss,
             )
         }
