@@ -241,7 +241,7 @@ jobs:
 
             APK assets: phone and Android TV universal, ARM64, ARMv7 (32-bit), and x86_64 builds.
 
-            Android 8.0 / API 26+ can install `Zotify.Music.apk` over v1.11.15 when it is signed with the same release key. Use the ABI-specific APKs for smaller downloads.
+            Android 8.0 / API 26+ can install `Zotify.Music.apk` over v1.11.16 when it is signed with the same release key. Use the ABI-specific APKs for smaller downloads.
 
             Android TV / Google TV / Fire TV 8.0 / API 26+ can use `ZotifyMusicTV.apk` or the matching ABI-specific build. ARMv7 suits most older TVs and streaming sticks; ARM64 is for newer boxes such as Shield and Chromecast with Google TV.
 
@@ -250,7 +250,8 @@ jobs:
             GitHub provides **Source code (zip)** and **Source code (tar.gz)** links automatically for this release.
 
             ### New in this release
-            - **Settings → More → What’s new:** read the complete v1.11.16 feature and compatibility highlights as a scrollable bullet list inside the app.
+            - **Settings → More → What’s new:** read the complete v1.11.17 feature and compatibility highlights as a scrollable bullet list inside the app.
+            - **Android TV updater:** universal and ABI-specific TV APKs are now correctly recognized by the in-app updater.
             - **Mochy-compatible Appearance Skin Manager:** import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.
             - **Review before installing:** inspect skin metadata and supported/unsupported settings before applying a pack.
             - **Native appearance controls:** customise accent colour, pure-black mode, and artwork corner radius.
