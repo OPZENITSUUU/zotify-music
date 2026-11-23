@@ -55,14 +55,17 @@ class DiscordRPC(
         val title = if (playbackSpeed != 1.0f) {
             "${song.title} [${"%.2f".format(Locale.ROOT, playbackSpeed)}x]"
         } else song.title
-        // Discord renders only these two text fields. Keep the defaults to
-        // title + artist (in the selected order); never echo the title as a
-        // third line above the progress bar.
-        val defaultDetails = if (useDetails) title else song.artist
-        val defaultState = if (useDetails) song.artist else title
-        val details = customDetails.trim().ifBlank { defaultDetails }.take(128)
+        // Discord renders only these two track text fields. The progress
+        // bar is supplied by timestamps and is never duplicated as a third line.
+        val (details, trackState) = discordPresenceTextLines(
+            title = title,
+            artist = song.artist,
+            leadWithSong = useDetails,
+            customDetails = customDetails,
+            customState = customState,
+        )
         val state = buildString {
-            append(customState.trim().ifBlank { defaultState }.take(96))
+            append(trackState)
             audioQuality?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
         }.take(128)
         val kind = if (spotifySpoof) "listening" else activityType
@@ -262,4 +265,22 @@ class DiscordRPC(
         private const val APPLICATION_ID = "1573592442916307075"
         private const val TOKEN_REFRESH_EARLY_MS = 60_000L
     }
+}
+
+
+/**
+ * Builds the two visible track lines. Keeping this pure makes the no-duplicate
+ * behaviour testable without a Discord connection.
+ */
+internal fun discordPresenceTextLines(
+    title: String,
+    artist: String,
+    leadWithSong: Boolean,
+    customDetails: String = "",
+    customState: String = "",
+): Pair<String, String> {
+    val defaultDetails = if (leadWithSong) title else artist
+    val defaultState = if (leadWithSong) artist else title
+    return customDetails.trim().ifBlank { defaultDetails }.take(128) to
+        customState.trim().ifBlank { defaultState }.take(96)
 }
