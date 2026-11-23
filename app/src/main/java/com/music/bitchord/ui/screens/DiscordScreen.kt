@@ -23,7 +23,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.Tune
@@ -414,6 +416,8 @@ fun DiscordScreen(
                 heading = if (spotifySpoof) "Spotify" else activityName.ifEmpty { appName() },
                 verb = if (spotifySpoof) "Listening to" else kindOf(activityType).localizedVerb(),
                 useDetails = useDetails,
+                customDetails = customDetails,
+                customState = customState,
                 audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
             )
         }
@@ -579,10 +583,14 @@ private fun RichPresencePreview(
     heading: String,
     verb: String,
     useDetails: Boolean,
+    customDetails: String,
+    customState: String,
     audioQuality: String?,
 ) {
     val title = song?.title ?: stringResource(R.string.widget_preview_title)
     val artist = song?.artist ?: stringResource(R.string.widget_preview_artist)
+    val details = customDetails.ifBlank { if (useDetails) title else artist }
+    val state = customState.ifBlank { if (useDetails) artist else title }
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(
@@ -617,17 +625,17 @@ private fun RichPresencePreview(
                 // member list — so which of these is emphasised is the whole
                 // point of the "Lead with the song" switch.
                 Text(
-                    text = title,
+                    text = details,
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                    fontWeight = if (useDetails) FontWeight.W700 else FontWeight.W400,
+                    fontWeight = FontWeight.W700,
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = artist,
+                    text = state,
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                    fontWeight = if (useDetails) FontWeight.W400 else FontWeight.W700,
+                    fontWeight = FontWeight.W400,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
