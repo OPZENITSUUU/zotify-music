@@ -590,7 +590,10 @@ private fun RichPresencePreview(
     val title = song?.title ?: stringResource(R.string.widget_preview_title)
     val artist = song?.artist ?: stringResource(R.string.widget_preview_artist)
     val details = customDetails.ifBlank { if (useDetails) title else artist }
-    val state = customState.ifBlank { if (useDetails) artist else title }
+    val state = buildString {
+        append(customState.ifBlank { if (useDetails) artist else title })
+        audioQuality?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
+    }
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(
@@ -640,15 +643,6 @@ private fun RichPresencePreview(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                audioQuality?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 Spacer(Modifier.height(8.dp))
                 ProgressLine(positionMs = positionMs, durationMs = durationMs)
             }
