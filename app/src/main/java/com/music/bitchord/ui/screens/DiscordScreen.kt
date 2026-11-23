@@ -627,7 +627,7 @@ private fun RichPresencePreview(
                 Text(
                     text = details,
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                    fontWeight = FontWeight.W700,
+                    fontWeight = if (useDetails) FontWeight.W700 else FontWeight.W400,
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -635,7 +635,7 @@ private fun RichPresencePreview(
                 Text(
                     text = state,
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                    fontWeight = FontWeight.W400,
+                    fontWeight = if (useDetails) FontWeight.W400 else FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
