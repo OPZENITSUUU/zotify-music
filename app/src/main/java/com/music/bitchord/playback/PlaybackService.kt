@@ -923,7 +923,8 @@ class PlaybackService : MediaLibraryService() {
                 pushDiscordPresence(exoPlayer)
                 startLyricsTicker()
             } else {
-                clearDiscordPresence()
+                if (AppSettings.discordClearWhenPaused.value) clearDiscordPresence()
+                else pushDiscordPresence(exoPlayer, paused = true)
                 stopLyricsTicker()
             }
         }
@@ -7067,6 +7068,12 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.discordStatus,
                 AppSettings.discordActivityType,
                 AppSettings.discordActivityName,
+                AppSettings.discordDetailsTemplate,
+                AppSettings.discordStateTemplate,
+                AppSettings.discordLargeImageHover,
+                AppSettings.discordSmallImageHover,
+                AppSettings.discordShowArtwork,
+                AppSettings.discordClearWhenPaused,
                 AppSettings.discordSpotifySpoof,
                 AppSettings.playbackSpeed,
             ) { it.toList() }
@@ -7133,7 +7140,7 @@ class PlaybackService : MediaLibraryService() {
      * never connect an account, and this is called from the middle of every
      * track change.
      */
-    private fun pushDiscordPresence(exoPlayer: ExoPlayer) {
+    private fun pushDiscordPresence(exoPlayer: ExoPlayer, paused: Boolean = false) {
         val rpc = discordRpc ?: return
         val song = exoPlayer.currentMediaItem?.toSong() ?: return
         // Read on the main thread, before the push is handed to IO: by the time
@@ -7175,6 +7182,12 @@ class PlaybackService : MediaLibraryService() {
                 button1Visible = AppSettings.discordButton1Visible.value,
                 button2Text = AppSettings.discordButton2Text.value,
                 button2Visible = AppSettings.discordButton2Visible.value,
+                detailsTemplate = AppSettings.discordDetailsTemplate.value,
+                stateTemplate = AppSettings.discordStateTemplate.value,
+                largeImageHover = AppSettings.discordLargeImageHover.value,
+                smallImageHover = AppSettings.discordSmallImageHover.value,
+                showArtwork = AppSettings.discordShowArtwork.value,
+                paused = paused,
             ).onFailure {
                 TrackLog.d("BitChord", "Discord presence failed: ${it.message}", about = song.videoId)
             }

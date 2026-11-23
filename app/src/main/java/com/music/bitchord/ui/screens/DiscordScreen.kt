@@ -89,7 +89,7 @@ enum class DiscordActivityKind(val value: String, val verb: String, val label: S
  * rendered by the activity, above the tab bar and mini player, rather than
  * inside the scrolling screen where a full-screen scrim would be trapped.
  */
-enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME, BUTTON_1_TEXT, BUTTON_2_TEXT }
+enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME, DETAILS_TEMPLATE, STATE_TEMPLATE, LARGE_HOVER, SMALL_HOVER, BUTTON_1_TEXT, BUTTON_2_TEXT }
 
 private fun statusOf(value: String) =
     DiscordPresenceStatus.entries.firstOrNull { it.value == value } ?: DiscordPresenceStatus.ONLINE
@@ -168,6 +168,12 @@ fun DiscordScreen(
     val status by AppSettings.discordStatus.collectAsStateWithLifecycle()
     val activityType by AppSettings.discordActivityType.collectAsStateWithLifecycle()
     val activityName by AppSettings.discordActivityName.collectAsStateWithLifecycle()
+    val detailsTemplate by AppSettings.discordDetailsTemplate.collectAsStateWithLifecycle()
+    val stateTemplate by AppSettings.discordStateTemplate.collectAsStateWithLifecycle()
+    val largeHover by AppSettings.discordLargeImageHover.collectAsStateWithLifecycle()
+    val smallHover by AppSettings.discordSmallImageHover.collectAsStateWithLifecycle()
+    val showArtwork by AppSettings.discordShowArtwork.collectAsStateWithLifecycle()
+    val clearWhenPaused by AppSettings.discordClearWhenPaused.collectAsStateWithLifecycle()
     val button1Text by AppSettings.discordButton1Text.collectAsStateWithLifecycle()
     val button1Visible by AppSettings.discordButton1Visible.collectAsStateWithLifecycle()
     val button2Text by AppSettings.discordButton2Text.collectAsStateWithLifecycle()
@@ -319,6 +325,42 @@ fun DiscordScreen(
                     )
                 }
                 SettingsGroup(
+                    header = "Behaviour",
+                ) {
+                    SettingsRow(
+                        icon = Icons.Rounded.Tune,
+                        title = "Clear status when paused",
+                        subtitle = "Remove the activity while playback is paused.",
+                        trailing = {
+                            Switch(checked = clearWhenPaused, onCheckedChange = AppSettings::setDiscordClearWhenPaused)
+                        },
+                        onClick = { AppSettings.setDiscordClearWhenPaused(!clearWhenPaused) },
+                    )
+                }
+                SettingsGroup(
+                    header = "Strings customisation",
+                    footer = "Use {name}, {artist}, {album}, {app}, {quality}, and {apple}. Leave a field empty to hide that line.",
+                ) {
+                    SettingsRow(icon = Icons.AutoMirrored.Rounded.Label, title = "Details string", subtitle = detailsTemplate, onClick = { onOpenDialog(DiscordDialog.DETAILS_TEMPLATE) })
+                    RowDivider()
+                    SettingsRow(icon = Icons.AutoMirrored.Rounded.Label, title = "State string", subtitle = stateTemplate, onClick = { onOpenDialog(DiscordDialog.STATE_TEMPLATE) })
+                }
+                SettingsGroup(
+                    header = "Image customisation",
+                ) {
+                    SettingsRow(
+                        icon = Icons.Rounded.GraphicEq,
+                        title = "Music artwork",
+                        subtitle = if (showArtwork) "Show album artwork" else "Turned off",
+                        trailing = { Switch(checked = showArtwork, onCheckedChange = AppSettings::setDiscordShowArtwork) },
+                        onClick = { AppSettings.setDiscordShowArtwork(!showArtwork) },
+                    )
+                    RowDivider()
+                    SettingsRow(icon = Icons.Rounded.GraphicEq, title = "Large image hover text", subtitle = largeHover, onClick = { onOpenDialog(DiscordDialog.LARGE_HOVER) })
+                    RowDivider()
+                    SettingsRow(icon = Icons.Rounded.GraphicEq, title = "Small image hover text", subtitle = smallHover, onClick = { onOpenDialog(DiscordDialog.SMALL_HOVER) })
+                }
+                SettingsGroup(
                     header = "Action buttons",
                     footer = "Buttons open the current track in YouTube Music or Spotify. You can change their labels and turn either one off.",
                 ) {
@@ -367,6 +409,11 @@ fun DiscordScreen(
                 verb = if (spotifySpoof) "Listening to" else kindOf(activityType).localizedVerb(),
                 useDetails = useDetails,
                 audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
+                spotifyButtonText = button2Text.ifBlank { "🟢 Spotify" },
+                spotifyButtonVisible = button2Visible,
+                detailsTemplate = detailsTemplate,
+                stateTemplate = stateTemplate,
+                album = song?.albumName.orEmpty(),
             )
         }
 
@@ -532,9 +579,31 @@ private fun RichPresencePreview(
     verb: String,
     useDetails: Boolean,
     audioQuality: String?,
+    spotifyButtonText: String,
+    spotifyButtonVisible: Boolean,
+    detailsTemplate: String,
+    stateTemplate: String,
+    album: String,
 ) {
+    val context = LocalContext.current
     val title = song?.title ?: stringResource(R.string.widget_preview_title)
     val artist = song?.artist ?: stringResource(R.string.widget_preview_artist)
+    val quality = audioQuality.orEmpty()
+    fun render(template: String, fallback: String): String {
+        val values = mapOf(
+            "{name}" to title,
+            "{artist}" to artist,
+            "{album}" to album,
+            "{app}" to "Zotify Music",
+            "{quality}" to quality,
+            "{apple}" to "",
+        )
+        var value = template.ifBlank { fallback }
+        values.forEach { (key, replacement) -> value = value.replace(key, replacement) }
+        return value.trim()
+    }
+    val details = if (detailsTemplate.isBlank()) "" else render(detailsTemplate, title)
+    val state = if (stateTemplate.isBlank()) "" else render(stateTemplate, artist)
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(
@@ -569,7 +638,7 @@ private fun RichPresencePreview(
                 // member list — so which of these is emphasised is the whole
                 // point of the "Lead with the song" switch.
                 Text(
-                    text = title,
+                    text = details,
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                     fontWeight = if (useDetails) FontWeight.W700 else FontWeight.W400,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -577,7 +646,7 @@ private fun RichPresencePreview(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = artist,
+                    text = state,
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                     fontWeight = if (useDetails) FontWeight.W400 else FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -597,8 +666,19 @@ private fun RichPresencePreview(
                 ProgressLine(positionMs = positionMs, durationMs = durationMs)
             }
         }
-
-
+        if (spotifyButtonVisible) {
+            Spacer(Modifier.height(12.dp))
+            PresenceButton(
+                label = spotifyButtonText.ifBlank { "🟢 Spotify" },
+                enabled = song != null,
+                onClick = {
+                    val query = java.net.URLEncoder.encode("${song?.title.orEmpty()} ${song?.artist.orEmpty()}", "UTF-8")
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, "https://open.spotify.com/search/$query".toUri()))
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -741,6 +821,44 @@ fun DiscordDialogHost(
                 onValueChange = { input = it },
                 onSave = {
                     AppSettings.setDiscordActivityName(input.trim())
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.DETAILS_TEMPLATE,
+        DiscordDialog.STATE_TEMPLATE,
+        DiscordDialog.LARGE_HOVER,
+        DiscordDialog.SMALL_HOVER -> {
+            val key = which
+            val current = when (key) {
+                DiscordDialog.DETAILS_TEMPLATE -> AppSettings.discordDetailsTemplate.value
+                DiscordDialog.STATE_TEMPLATE -> AppSettings.discordStateTemplate.value
+                DiscordDialog.LARGE_HOVER -> AppSettings.discordLargeImageHover.value
+                else -> AppSettings.discordSmallImageHover.value
+            }
+            var input by remember(key) { mutableStateOf(current) }
+            val title = when (key) {
+                DiscordDialog.DETAILS_TEMPLATE -> "Details string"
+                DiscordDialog.STATE_TEMPLATE -> "State string"
+                DiscordDialog.LARGE_HOVER -> "Large image hover text"
+                else -> "Small image hover text"
+            }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = title,
+                message = "Placeholders: {name}, {artist}, {album}, {app}, {quality}, {apple}.",
+                placeholder = "{name}",
+                value = input,
+                onValueChange = { input = it },
+                onSave = {
+                    when (key) {
+                        DiscordDialog.DETAILS_TEMPLATE -> AppSettings.setDiscordDetailsTemplate(input)
+                        DiscordDialog.STATE_TEMPLATE -> AppSettings.setDiscordStateTemplate(input)
+                        DiscordDialog.LARGE_HOVER -> AppSettings.setDiscordLargeImageHover(input)
+                        else -> AppSettings.setDiscordSmallImageHover(input)
+                    }
                     onDismiss()
                 },
                 onDismiss = onDismiss,

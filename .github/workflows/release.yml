@@ -250,6 +250,7 @@ jobs:
             GitHub provides **Source code (zip)** and **Source code (tar.gz)** links automatically for this release.
 
             ### New in this release
+            - **Discord Rich Presence:** Mochy-style activity and metadata templates, artwork/hover-text controls, custom button labels, Spotify-style presence, pause behaviour, live preview, audio-quality display, and synchronized playback timestamps.
             - **Settings → More → What’s new:** read the complete v1.11 feature and compatibility highlights as a scrollable bullet list inside the app.
             - **Mochy-compatible Appearance Skin Manager:** import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.
             - **Review before installing:** inspect skin metadata and supported/unsupported settings before applying a pack.

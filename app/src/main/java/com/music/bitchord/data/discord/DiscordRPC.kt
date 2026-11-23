@@ -46,15 +46,31 @@ class DiscordRPC(
         button1Visible: Boolean = true,
         button2Text: String = "",
         button2Visible: Boolean = true,
+        detailsTemplate: String = "{name}",
+        stateTemplate: String = "{artist}",
+        largeImageHover: String = "{name} by {artist}",
+        smallImageHover: String = "{quality}",
+        showArtwork: Boolean = true,
     ) = runCatching {
         val title = if (playbackSpeed != 1.0f) {
             "${song.title} [${"%.2f".format(Locale.ROOT, playbackSpeed)}x]"
         } else song.title
-        val details = if (useDetails) title else song.artist
-        val state = buildString {
-            append(if (useDetails) song.artist else title)
-            audioQuality?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
+        val quality = audioQuality.orEmpty()
+        fun render(template: String, fallback: String): String {
+            val values = mapOf(
+                "{name}" to song.title,
+                "{artist}" to song.artist,
+                "{album}" to song.albumName.orEmpty(),
+                "{app}" to "Zotify Music",
+                "{quality}" to quality,
+                "{apple}" to "",
+            )
+            var result = template.ifBlank { fallback }
+            values.forEach { (key, value) -> result = result.replace(key, value, ignoreCase = false) }
+            return result.trim().take(128)
         }
+        val details = if (detailsTemplate.isBlank()) "" else render(detailsTemplate, if (useDetails) title else song.artist)
+        val state = if (stateTemplate.isBlank()) "" else render(stateTemplate, if (useDetails) song.artist else title)
         val kind = if (spotifySpoof) "listening" else activityType
         val type = when (kind.lowercase(Locale.ROOT)) {
             "playing" -> 0
@@ -62,7 +78,7 @@ class DiscordRPC(
             "competing" -> 5
             else -> 2
         }
-        val name = if (spotifySpoof) "Spotify" else activityName.trim().ifBlank { "Zotify Music" }
+        val name = if (spotifySpoof) "Spotify" else render(activityName, "Zotify Music")
         val now = System.currentTimeMillis()
         val speed = playbackSpeed.coerceAtLeast(0.1f)
         val start = now - (currentPlaybackTimeMillis.coerceAtLeast(0L) / speed).toLong()
@@ -73,11 +89,13 @@ class DiscordRPC(
             .put("application_id", APPLICATION_ID)
             .put("details", details.take(128))
             .put("state", state.take(128))
-        val registeredArtwork = artworkUrl?.takeIf { it.startsWith("https://") }?.let { registerExternalAsset(it) }
+        val registeredArtwork = if (showArtwork) artworkUrl?.takeIf { it.startsWith("https://") }?.let { registerExternalAsset(it) } else null
         if (!registeredArtwork.isNullOrBlank()) {
             activity.put("assets", JSONObject()
                 .put("large_image", registeredArtwork)
-                .put("large_text", title.take(128)))
+                .put("large_text", render(largeImageHover, title))
+                .put("small_image", registeredArtwork)
+                .put("small_text", render(smallImageHover, quality)))
         }
         val buttonLabels = JSONArray()
         val buttonUrls = JSONArray()
@@ -89,7 +107,7 @@ class DiscordRPC(
                 else "https://music.youtube.com/search?q=$query")
         }
         if (button2Visible) {
-            buttonLabels.put(button2Text.trim().ifBlank { "Spotify" }.take(32))
+            buttonLabels.put(button2Text.trim().ifBlank { "🟢 Spotify" }.take(32))
             val query = URLEncoder.encode("${song.title} ${song.artist}", Charsets.UTF_8.name())
             buttonUrls.put("https://open.spotify.com/search/$query")
         }

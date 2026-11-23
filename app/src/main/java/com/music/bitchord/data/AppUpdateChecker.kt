@@ -526,7 +526,7 @@ object AppUpdateChecker {
     private data class ParsedVersion(val parts: List<Int>, val preRelease: List<String>?)
 
     private fun parseVersion(raw: String): ParsedVersion {
-        val dash = raw.indexOf('-')
+        val dash = raw.indexOf('-').takeIf { it >= 0 } ?: raw.indexOf(' ').takeIf { it >= 0 } ?: -1
         val base = if (dash >= 0) raw.substring(0, dash) else raw
         val preRelease = if (dash >= 0) {
             raw.substring(dash + 1)

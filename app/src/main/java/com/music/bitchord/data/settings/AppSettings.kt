@@ -715,6 +715,12 @@ object AppSettings {
 
     /** Overrides the "Listening to ___" line; empty means the app's own name. */
     val discordActivityName = MutableStateFlow("")
+    val discordDetailsTemplate = MutableStateFlow("{name}")
+    val discordStateTemplate = MutableStateFlow("{artist}")
+    val discordLargeImageHover = MutableStateFlow("{name} by {artist}")
+    val discordSmallImageHover = MutableStateFlow("{quality}")
+    val discordShowArtwork = MutableStateFlow(true)
+    val discordClearWhenPaused = MutableStateFlow(true)
 
     val discordButton1Text = MutableStateFlow("")
     val discordButton1Visible = MutableStateFlow(true)
@@ -1004,6 +1010,12 @@ object AppSettings {
         discordStatus.value = prefs.getString(KEY_DISCORD_STATUS, "online").orEmpty()
         discordActivityType.value = prefs.getString(KEY_DISCORD_ACTIVITY_TYPE, "listening").orEmpty()
         discordActivityName.value = prefs.getString(KEY_DISCORD_ACTIVITY_NAME, "").orEmpty()
+        discordDetailsTemplate.value = prefs.getString(KEY_DISCORD_DETAILS_TEMPLATE, "{name}").orEmpty()
+        discordStateTemplate.value = prefs.getString(KEY_DISCORD_STATE_TEMPLATE, "{artist}").orEmpty()
+        discordLargeImageHover.value = prefs.getString(KEY_DISCORD_LARGE_HOVER, "{name} by {artist}").orEmpty()
+        discordSmallImageHover.value = prefs.getString(KEY_DISCORD_SMALL_HOVER, "{quality}").orEmpty()
+        discordShowArtwork.value = prefs.getBoolean(KEY_DISCORD_SHOW_ARTWORK, true)
+        discordClearWhenPaused.value = prefs.getBoolean(KEY_DISCORD_CLEAR_PAUSED, true)
         discordButton1Text.value = prefs.getString(KEY_DISCORD_BUTTON_1_TEXT, "").orEmpty()
         discordButton1Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_1_VISIBLE, true)
         discordButton2Text.value = prefs.getString(KEY_DISCORD_BUTTON_2_TEXT, "").orEmpty()
@@ -1763,6 +1775,36 @@ object AppSettings {
         prefs.edit().putString(KEY_DISCORD_ACTIVITY_NAME, value).apply()
     }
 
+    fun setDiscordDetailsTemplate(value: String) {
+        discordDetailsTemplate.value = value
+        prefs.edit().putString(KEY_DISCORD_DETAILS_TEMPLATE, value).apply()
+    }
+
+    fun setDiscordStateTemplate(value: String) {
+        discordStateTemplate.value = value
+        prefs.edit().putString(KEY_DISCORD_STATE_TEMPLATE, value).apply()
+    }
+
+    fun setDiscordLargeImageHover(value: String) {
+        discordLargeImageHover.value = value
+        prefs.edit().putString(KEY_DISCORD_LARGE_HOVER, value).apply()
+    }
+
+    fun setDiscordSmallImageHover(value: String) {
+        discordSmallImageHover.value = value
+        prefs.edit().putString(KEY_DISCORD_SMALL_HOVER, value).apply()
+    }
+
+    fun setDiscordShowArtwork(value: Boolean) {
+        discordShowArtwork.value = value
+        prefs.edit().putBoolean(KEY_DISCORD_SHOW_ARTWORK, value).apply()
+    }
+
+    fun setDiscordClearWhenPaused(value: Boolean) {
+        discordClearWhenPaused.value = value
+        prefs.edit().putBoolean(KEY_DISCORD_CLEAR_PAUSED, value).apply()
+    }
+
     fun setDiscordButton1Text(value: String) {
         discordButton1Text.value = value
         prefs.edit().putString(KEY_DISCORD_BUTTON_1_TEXT, value).apply()
@@ -2208,6 +2250,12 @@ object AppSettings {
     private const val KEY_DISCORD_STATUS = "discord_status"
     private const val KEY_DISCORD_ACTIVITY_TYPE = "discord_activity_type"
     private const val KEY_DISCORD_ACTIVITY_NAME = "discord_activity_name"
+    private const val KEY_DISCORD_DETAILS_TEMPLATE = "discord_details_template"
+    private const val KEY_DISCORD_STATE_TEMPLATE = "discord_state_template"
+    private const val KEY_DISCORD_LARGE_HOVER = "discord_large_hover"
+    private const val KEY_DISCORD_SMALL_HOVER = "discord_small_hover"
+    private const val KEY_DISCORD_SHOW_ARTWORK = "discord_show_artwork"
+    private const val KEY_DISCORD_CLEAR_PAUSED = "discord_clear_paused"
     private const val KEY_DISCORD_BUTTON_1_TEXT = "discord_button_1_text"
     private const val KEY_DISCORD_BUTTON_1_VISIBLE = "discord_button_1_visible"
     private const val KEY_DISCORD_BUTTON_2_TEXT = "discord_button_2_text"
