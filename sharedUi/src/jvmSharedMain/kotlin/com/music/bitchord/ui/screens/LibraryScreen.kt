@@ -114,6 +114,8 @@ fun LibraryScreen(
      * whole. Left off the page entirely while there are none.
      */
     deviceItems: List<ShelfItem>,
+    /** Filters collection cards without mutating the underlying library data. */
+    visibleItem: (ShelfItem) -> Boolean = { true },
     /** The big "Library" heading; the desktop's pages carry none. */
     showTitle: Boolean = true,
 ) {
@@ -152,6 +154,7 @@ fun LibraryScreen(
                         onItemClick = onShelfItemClick,
                         onItemLongPress = onShelfItemLongPress,
                         onShowAll = { onShowAll(onDeviceShelf) },
+                        visibleItem = visibleItem,
                     )
                 }
             }
@@ -165,6 +168,7 @@ fun LibraryScreen(
                         onNewPlaylist = onNewPlaylist,
                         onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                         onShowAll = { onShowAll(emptyPlaylists) },
+                        visibleItem = visibleItem,
                     )
                 }
                 item {
@@ -197,6 +201,7 @@ fun LibraryScreen(
                                 onNewPlaylist = onNewPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                                 onShowAll = { onShowAll(emptyPlaylists) },
+                                visibleItem = visibleItem,
                             )
                         }
                     }
@@ -212,6 +217,7 @@ fun LibraryScreen(
                                     onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                                     onShowAll = { onShowAll(pinnedFirst) },
                                     pinnedPlaylists = pinnedPlaylists,
+                                    visibleItem = visibleItem,
                                 )
                             } else {
                                 LibraryGridShelf(
@@ -219,6 +225,7 @@ fun LibraryScreen(
                                     onItemClick = onShelfItemClick,
                                     onItemLongPress = onShelfItemLongPress,
                                     onShowAll = { onShowAll(shelf) },
+                                    visibleItem = visibleItem,
                                 )
                             }
                         }
@@ -311,6 +318,7 @@ private fun PlaylistShelf(
     onImportSpotifyPlaylist: (() -> Unit)? = null,
     onShowAll: () -> Unit,
     pinnedPlaylists: List<String> = emptyList(),
+    visibleItem: (ShelfItem) -> Boolean = { true },
 ) {
     LibraryGridShelf(
         shelf = shelf,
@@ -318,6 +326,7 @@ private fun PlaylistShelf(
         onItemLongPress = onItemLongPress,
         onShowAll = onShowAll,
         pinnedPlaylists = pinnedPlaylists,
+        visibleItem = visibleItem,
         leadingCard = {
             Row(horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING)) {
                 NewShelfCard(
@@ -361,14 +370,16 @@ internal fun LibraryGridShelf(
     onShowAll: () -> Unit,
     leadingCard: (@Composable () -> Unit)? = null,
     pinnedPlaylists: List<String> = emptyList(),
+    visibleItem: (ShelfItem) -> Boolean = { true },
 ) {
     val leadingCount = if (leadingCard != null) 1 else 0
-    val visibleItems = shelf.items.take((LIBRARY_ROW_MAX_ITEMS - leadingCount).coerceAtLeast(0))
+    val filteredItems = shelf.items.filter(visibleItem)
+    val visibleItems = filteredItems.take((LIBRARY_ROW_MAX_ITEMS - leadingCount).coerceAtLeast(0))
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(
             title = shelf.title,
             subtitle = shelf.subtitle,
-            onShowAll = onShowAll.takeIf { shelf.items.size + leadingCount > LIBRARY_ROW_MAX_ITEMS },
+            onShowAll = onShowAll.takeIf { filteredItems.size + leadingCount > LIBRARY_ROW_MAX_ITEMS },
         )
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
@@ -400,6 +411,7 @@ fun LibraryGridPage(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     onNewPlaylist: (() -> Unit)? = null,
+    visibleItem: (ShelfItem) -> Boolean = { true },
 ) {
     // Re-read live rather than trusting [shelf] to already be sorted: this page
     // is opened from a snapshot (see `libraryShowAll` in MainActivity), and a
@@ -410,7 +422,7 @@ fun LibraryGridPage(
     // Pinning wins over the default order, but an explicit sort is a stronger,
     // more deliberate signal than a pin and is left to reorder the whole grid,
     // pinned cards included.
-    val sortedShelf = shelf.pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
+    val sortedShelf = shelf.copy(items = shelf.items.filter(visibleItem)).pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
     BoxWithConstraints(modifier.fillMaxSize()) {
         val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
         LazyVerticalGrid(

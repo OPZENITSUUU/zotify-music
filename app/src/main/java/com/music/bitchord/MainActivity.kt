@@ -325,6 +325,7 @@ import com.music.bitchord.data.settings.LocalMusicSort
 import com.music.bitchord.ui.screens.HomeScreen
 import com.music.bitchord.ui.screens.LibraryGridPage
 import com.music.bitchord.ui.screens.LibraryScreen
+import com.music.bitchord.ui.screens.LibraryManagementScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
@@ -954,6 +955,8 @@ private fun BitChordApp(
     val webdavUrl by AppSettings.webdavUrl.collectAsStateWithLifecycle()
     val smbHost by AppSettings.smbHost.collectAsStateWithLifecycle()
     val librarySort by AppSettings.librarySort.collectAsStateWithLifecycle()
+    val hiddenLibraryAlbumIds by AppSettings.hiddenLibraryAlbumIds.collectAsStateWithLifecycle()
+    val hiddenLibraryArtistIds by AppSettings.hiddenLibraryArtistIds.collectAsStateWithLifecycle()
     // The releases those files were asked for as — read here rather than in the
     // page so the Downloads folder recomposes when one is added, the same way it
     // does when a file is.
@@ -2833,6 +2836,12 @@ private fun BitChordApp(
                                 gridState = libraryShowAllGridState,
                                 onItemClick = onLibraryItemClick,
                                 onItemLongPress = onBrowseLongPress,
+                                visibleItem = { item ->
+                                    item.browseId?.let { id ->
+                                        viewModel.browseTypeOf(id) !in setOf(BrowseType.ALBUM, BrowseType.ARTIST) ||
+                                            (id !in hiddenLibraryAlbumIds && id !in hiddenLibraryArtistIds)
+                                    } ?: true
+                                },
                                 // Only the Playlists shelf can grow one — see
                                 // [PlaylistShelf].
                                 onNewPlaylist = if (shelf.title == YtMusicRepository.PLAYLISTS_SHELF) {
@@ -2959,6 +2968,9 @@ private fun BitChordApp(
                             onAccountScrobbling = {
                                 settingsSubScreen = "account_scrobbling"
                                 showAccountScrobbling = true
+                            },
+                            onLibraryManagement = {
+                                settingsSubScreen = "library_management"
                             },
                             onEqualizer = {
                                 settingsSubScreen = "equalizer"
@@ -3470,6 +3482,15 @@ private fun BitChordApp(
                             // album or a Liked Music card gets. Holding an artist still
                             // does nothing; see [onBrowseLongPress].
                             onShelfItemLongPress = onBrowseLongPress,
+                            visibleItem = { item ->
+                                item.browseId?.let { id ->
+                                    when (viewModel.browseTypeOf(id)) {
+                                        BrowseType.ALBUM -> id !in hiddenLibraryAlbumIds
+                                        BrowseType.ARTIST -> id !in hiddenLibraryArtistIds
+                                        else -> true
+                                    }
+                                } ?: true
+                            },
                             onNewPlaylist = { creatingPlaylist = true },
                             onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
                             onShowAll = { shelf -> libraryShowAll = shelf },
@@ -3510,6 +3531,27 @@ private fun BitChordApp(
                 // Discord (pushed over Account) was covered by the page it opened
                 // from — hence skipped while it is up.
                 when (settingsSubScreen.takeUnless { showDiscord || showSpotify }) {
+                    "library_management" -> {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background,
+                        ) {
+                            val entries = (libraryState as? UiState.Success)?.data?.shelves.orEmpty()
+                                .flatMap { it.items }
+                                .mapNotNull { item -> item.browseId?.let { it to item.title } }
+                                .distinctBy { it.first }
+                            LibraryManagementScreen(
+                                albums = entries.filter { viewModel.browseTypeOf(it.first) == BrowseType.ALBUM },
+                                artists = entries.filter { viewModel.browseTypeOf(it.first) == BrowseType.ARTIST },
+                                hiddenAlbums = hiddenLibraryAlbumIds,
+                                hiddenArtists = hiddenLibraryArtistIds,
+                                onBack = { settingsSubScreen = null },
+                                onUnhideAlbum = AppSettings::unhideLibraryAlbum,
+                                onApplyArtists = AppSettings::setHiddenLibraryArtists,
+                                contentPadding = listPadding,
+                            )
+                        }
+                    }
                     "account_scrobbling" -> {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
@@ -5021,6 +5063,12 @@ private fun BitChordApp(
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
+                        browseActions = null
+                    }
+                },
+                onHideAlbum = target.browseId?.takeIf { target.type == BrowseType.ALBUM }?.let { id ->
+                    {
+                        AppSettings.hideLibraryAlbum(id)
                         browseActions = null
                     }
                 },

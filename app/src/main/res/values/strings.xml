@@ -136,6 +136,13 @@
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">Now playing</string>
     <string name="selected">Selected</string>
+    <string name="hide_album">Hide album</string>
+    <string name="manage_library">Manage Library</string>
+    <string name="hidden_albums">Hidden albums</string>
+    <string name="unhide">Unhide</string>
+    <string name="manage_artists">Manage artists</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="save_apply">Save / Apply</string>
     <string name="select_all">Select all</string>
     <string name="password">Password</string>
     <string name="username">Username</string>

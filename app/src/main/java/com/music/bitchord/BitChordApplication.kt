@@ -24,6 +24,7 @@ import com.music.bitchord.data.smb.SmbCoverFetcher
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.spotify.SpotifyLibrary
+import com.music.bitchord.data.spotify.PlaylistArtworkStore
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.BoundedContextPersistence
@@ -118,6 +119,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        PlaylistArtworkStore.init(this)
         // Before anything resolves a track: an addon with `checkValidLossless`
         // is gated on this, and the gate reads "no" until it has looked.
         com.music.bitchord.playback.audio.LosslessOutput.init(this)

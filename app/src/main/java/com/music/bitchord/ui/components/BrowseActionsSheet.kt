@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -155,6 +156,7 @@ fun BrowseActionsSheet(
      */
     isPinned: Boolean = false,
     onTogglePin: (() -> Unit)? = null,
+    onHideAlbum: (() -> Unit)? = null,
     onRename: ((String) -> Unit)? = null,
     /**
      * Opens the reorder sheet for one of the account's own playlists — set
@@ -279,6 +281,13 @@ fun BrowseActionsSheet(
                 ActionRow(
                     BitChordIcons.Pin,
                     stringResource(if (isPinned) R.string.unpin else R.string.pin),
+                    onClick = it,
+                )
+            }
+            onHideAlbum?.let {
+                ActionRow(
+                    Icons.Rounded.VisibilityOff,
+                    stringResource(R.string.hide_album),
                     onClick = it,
                 )
             }
