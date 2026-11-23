@@ -602,8 +602,8 @@ private fun RichPresencePreview(
         values.forEach { (key, replacement) -> value = value.replace(key, replacement) }
         return value.trim()
     }
-    val details = render(detailsTemplate, title)
-    val state = render(stateTemplate, artist)
+    val details = if (detailsTemplate.isBlank()) "" else render(detailsTemplate, title)
+    val state = if (stateTemplate.isBlank()) "" else render(stateTemplate, artist)
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(
