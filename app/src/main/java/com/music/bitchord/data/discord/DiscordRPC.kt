@@ -46,15 +46,25 @@ class DiscordRPC(
         button1Visible: Boolean = true,
         button2Text: String = "",
         button2Visible: Boolean = true,
+        customDetails: String = "",
+        customState: String = "",
+        largeImageText: String = "",
+        button1Url: String = "",
+        button2Url: String = "",
     ) = runCatching {
         val title = if (playbackSpeed != 1.0f) {
             "${song.title} [${"%.2f".format(Locale.ROOT, playbackSpeed)}x]"
         } else song.title
-        val details = if (useDetails) title else song.artist
+        // Discord renders only these two text fields. Keep the defaults to
+        // title + artist (in the selected order); never echo the title as a
+        // third line above the progress bar.
+        val defaultDetails = if (useDetails) title else song.artist
+        val defaultState = if (useDetails) song.artist else title
+        val details = customDetails.trim().ifBlank { defaultDetails }.take(128)
         val state = buildString {
-            append(if (useDetails) song.artist else title)
+            append(customState.trim().ifBlank { defaultState }.take(96))
             audioQuality?.takeIf { it.isNotBlank() }?.let { append(" · "); append(it) }
-        }
+        }.take(128)
         val kind = if (spotifySpoof) "listening" else activityType
         val type = when (kind.lowercase(Locale.ROOT)) {
             "playing" -> 0
@@ -71,13 +81,13 @@ class DiscordRPC(
             .put("name", name)
             .put("type", if (spotifySpoof) 2 else type)
             .put("application_id", APPLICATION_ID)
-            .put("details", details.take(128))
-            .put("state", state.take(128))
+            .put("details", details)
+            .put("state", state)
         val registeredArtwork = artworkUrl?.takeIf { it.startsWith("https://") }?.let { registerExternalAsset(it) }
         if (!registeredArtwork.isNullOrBlank()) {
             activity.put("assets", JSONObject()
                 .put("large_image", registeredArtwork)
-                .put("large_text", title.take(128)))
+                .put("large_text", largeImageText.trim().ifBlank { title }.take(128)))
         }
         val buttonLabels = JSONArray()
         val buttonUrls = JSONArray()
@@ -85,13 +95,15 @@ class DiscordRPC(
             buttonLabels.put(button1Text.trim().ifBlank { "YouTube Music" }.take(32))
             val video = song.videoId.trim()
             val query = URLEncoder.encode("${song.title} ${song.artist}", Charsets.UTF_8.name())
-            buttonUrls.put(if (video.isNotBlank()) "https://music.youtube.com/watch?v=$video"
+            buttonUrls.put(button1Url.trim().takeIf { it.startsWith("https://", ignoreCase = true) }
+                ?: if (video.isNotBlank()) "https://music.youtube.com/watch?v=$video"
                 else "https://music.youtube.com/search?q=$query")
         }
         if (button2Visible) {
             buttonLabels.put(button2Text.trim().ifBlank { "Spotify" }.take(32))
             val query = URLEncoder.encode("${song.title} ${song.artist}", Charsets.UTF_8.name())
-            buttonUrls.put("https://open.spotify.com/search/$query")
+            buttonUrls.put(button2Url.trim().takeIf { it.startsWith("https://", ignoreCase = true) }
+                ?: "https://open.spotify.com/search/$query")
         }
         if (buttonLabels.length() > 0) {
             activity.put("buttons", buttonLabels)
