@@ -576,23 +576,18 @@ private fun RichPresencePreview(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // Keep the card to the two track lines Discord displays.
+                // Quality is appended to the artist line rather than creating
+                // a third row immediately above the progress bar.
                 Text(
-                    text = artist,
+                    text = listOfNotNull(artist, audioQuality?.takeIf { it.isNotBlank() })
+                        .joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                     fontWeight = if (useDetails) FontWeight.W400 else FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                audioQuality?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 Spacer(Modifier.height(8.dp))
                 ProgressLine(positionMs = positionMs, durationMs = durationMs)
             }
