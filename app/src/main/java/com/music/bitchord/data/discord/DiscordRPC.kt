@@ -69,8 +69,8 @@ class DiscordRPC(
             values.forEach { (key, value) -> result = result.replace(key, value, ignoreCase = false) }
             return result.trim().take(128)
         }
-        val details = render(detailsTemplate, if (useDetails) title else song.artist)
-        val state = render(stateTemplate, if (useDetails) song.artist else title)
+        val details = if (detailsTemplate.isBlank()) "" else render(detailsTemplate, if (useDetails) title else song.artist)
+        val state = if (stateTemplate.isBlank()) "" else render(stateTemplate, if (useDetails) song.artist else title)
         val kind = if (spotifySpoof) "listening" else activityType
         val type = when (kind.lowercase(Locale.ROOT)) {
             "playing" -> 0
