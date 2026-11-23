@@ -18,6 +18,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.core.content.ContextCompat
@@ -5147,7 +5148,11 @@ private fun BitChordApp(
             PlaylistCoverEditorDialog(
                 currentArtwork = PlaylistArtworkStore.get(playlistId)?.toURI()?.toString(),
                 selectedUri = playlistCoverUri,
-                onPick = { playlistCoverPicker.launch(ActivityResultContracts.PickVisualMedia.ImageOnly) },
+                onPick = {
+                    playlistCoverPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
                 onSave = { uri ->
                     try {
                         PlaylistArtworkStore.save(context, playlistId, uri)
