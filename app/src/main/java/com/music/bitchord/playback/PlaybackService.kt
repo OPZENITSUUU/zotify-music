@@ -7175,6 +7175,11 @@ class PlaybackService : MediaLibraryService() {
                 button1Visible = AppSettings.discordButton1Visible.value,
                 button2Text = AppSettings.discordButton2Text.value,
                 button2Visible = AppSettings.discordButton2Visible.value,
+                customDetails = AppSettings.discordCustomDetails.value,
+                customState = AppSettings.discordCustomState.value,
+                largeImageText = AppSettings.discordLargeImageText.value,
+                button1Url = AppSettings.discordButton1Url.value,
+                button2Url = AppSettings.discordButton2Url.value,
             ).onFailure {
                 TrackLog.d("BitChord", "Discord presence failed: ${it.message}", about = song.videoId)
             }
