@@ -158,6 +158,7 @@ fun BrowseActionsSheet(
     onTogglePin: (() -> Unit)? = null,
     onHideAlbum: (() -> Unit)? = null,
     onRename: ((String) -> Unit)? = null,
+    onChangePlaylistCover: (() -> Unit)? = null,
     /**
      * Opens the reorder sheet for one of the account's own playlists — set
      * under the same rule as [onRename], since YouTube refuses to rearrange a
@@ -299,6 +300,9 @@ fun BrowseActionsSheet(
                         renaming = true
                     }
                 }
+            }
+            onChangePlaylistCover?.let {
+                ActionRow(Icons.Rounded.Edit, stringResource(R.string.change_playlist_cover), onClick = it)
             }
             onReorder?.let {
                 ActionRow(Icons.Rounded.SwapVert, stringResource(R.string.reorder_songs), onClick = it)

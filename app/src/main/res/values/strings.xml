@@ -143,6 +143,10 @@
     <string name="manage_artists">Manage artists</string>
     <string name="deselect_all">Deselect all</string>
     <string name="save_apply">Save / Apply</string>
+    <string name="change_playlist_cover">Change playlist cover</string>
+    <string name="remove_playlist_cover">Remove custom cover</string>
+    <string name="choose_playlist_cover">Choose playlist cover</string>
+    <string name="playlist_cover_invalid">That image could not be read. Choose another image.</string>
     <string name="select_all">Select all</string>
     <string name="password">Password</string>
     <string name="username">Username</string>

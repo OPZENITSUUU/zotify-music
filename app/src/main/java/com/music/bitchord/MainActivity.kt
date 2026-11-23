@@ -189,6 +189,7 @@ import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.ui.screens.SpotifyCanvasAuthScreen
 import com.music.bitchord.ui.screens.SpotifyLibraryScreen
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
+import com.music.bitchord.data.spotify.PlaylistArtworkStore
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LinkRequest
 import com.music.bitchord.playback.MusicLink
@@ -326,6 +327,7 @@ import com.music.bitchord.ui.screens.HomeScreen
 import com.music.bitchord.ui.screens.LibraryGridPage
 import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.LibraryManagementScreen
+import com.music.bitchord.ui.screens.PlaylistCoverEditorDialog
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
@@ -728,6 +730,8 @@ private fun BitChordApp(
     var browseMenuOrigin by remember { mutableStateOf<HeldItem?>(null) }
     /** Rename asked for from the popup, which hands it on to the sheet's form. */
     var browseRenameInSheet by remember { mutableStateOf(false) }
+    var playlistCoverTarget by remember { mutableStateOf<String?>(null) }
+    var playlistCoverUri by remember { mutableStateOf<Uri?>(null) }
     /** The playlist being rearranged, or null when the reorder sheet is shut. */
     var reorderTarget by remember { mutableStateOf<UserPlaylist?>(null) }
     /** Its entries as YouTube has them now — fetched fresh when the sheet opens. */
@@ -785,6 +789,10 @@ private fun BitChordApp(
     var updateDialogShown by rememberSaveable { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
+    val playlistArtworkRevision by PlaylistArtworkStore.revision.collectAsStateWithLifecycle()
+    val playlistCoverPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> playlistCoverUri = uri }
     val updateNotificationTapped by MainActivity.updateNotificationTapped.collectAsStateWithLifecycle()
     val installerResultLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -975,10 +983,28 @@ private fun BitChordApp(
         ShelfItem(
             title = playlist.title,
             subtitle = stringResource(R.string.local_playlist_subtitle, playlist.songs.size),
-            thumbnailUrl = playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl,
+            thumbnailUrl = PlaylistArtworkStore.get(playlist.browseId)?.toURI()?.toString()
+                ?: playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl,
             videoId = null,
             browseId = playlist.browseId,
         )
+    }
+    val libraryDisplayState = remember(libraryState, playlistArtworkRevision) {
+        when (val state = libraryState) {
+            is UiState.Success -> UiState.Success(
+                state.data.copy(
+                    shelves = state.data.shelves.map { shelf ->
+                        shelf.copy(items = shelf.items.map { item ->
+                            val id = item.browseId
+                            if (id != null && viewModel.browseTypeOf(id) == BrowseType.PLAYLIST) {
+                                item.copy(thumbnailUrl = PlaylistArtworkStore.get(id)?.toURI()?.toString() ?: item.thumbnailUrl)
+                            } else item
+                        })
+                    },
+                ),
+            )
+            else -> state
+        }
     }
     // What a browse id is recorded under in Downloads.collections, when it names
     // a release downloaded whole — see BrowseTarget.downloadId. A downloaded
@@ -2107,7 +2133,7 @@ private fun BitChordApp(
                 browseId = id,
                 title = item.title,
                 subtitle = item.subtitle,
-                thumbnailUrl = item.thumbnailUrl,
+                thumbnailUrl = PlaylistArtworkStore.get(id)?.toURI()?.toString() ?: item.thumbnailUrl,
             )
         }
     }
@@ -3474,7 +3500,7 @@ private fun BitChordApp(
                         )
                         else -> LibraryScreen(
                             signedIn = signedIn,
-                            state = libraryState,
+                            state = libraryDisplayState,
                             listState = libraryListState,
                             onShelfItemClick = onLibraryItemClick,
                             // Every shelf here has a menu behind it now — the account's
@@ -4970,9 +4996,12 @@ private fun BitChordApp(
             val remote = target.browseId?.startsWith("local:") == false
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             val pinnableId = target.browseId?.takeIf { target.type == BrowseType.PLAYLIST }
+            val customArtwork = remember(target.browseId, playlistArtworkRevision) {
+                target.browseId?.let { PlaylistArtworkStore.get(it)?.toURI()?.toString() }
+            }
             BrowseActionsSheet(
                 // The live answer, not the one the target was built with.
-                target = target.copy(playlist = playlist),
+                target = target.copy(playlist = playlist, thumbnailUrl = customArtwork ?: target.thumbnailUrl),
                 presentation = presentation,
                 onRenameInSheet = {
                     browseRenameInSheet = true
@@ -4998,7 +5027,7 @@ private fun BitChordApp(
                                 browseId = id,
                                 title = target.title,
                                 subtitle = target.subtitle,
-                                thumbnailUrl = target.thumbnailUrl,
+                                thumbnailUrl = customArtwork ?: target.thumbnailUrl,
                                 type = target.type,
                             )
                         }
@@ -5072,6 +5101,13 @@ private fun BitChordApp(
                         browseActions = null
                     }
                 },
+                onChangePlaylistCover = playlist?.browseId?.let { id ->
+                    {
+                        playlistCoverTarget = id
+                        playlistCoverUri = null
+                        browseActions = null
+                    }
+                },
                 onRename = playlist?.let { p ->
                     { name: String ->
                         browseActions = null
@@ -5104,6 +5140,35 @@ private fun BitChordApp(
                         browseActions = null
                         scope.launch { Downloads.deleteCollection(context, id) }
                     }
+                },
+            )
+        }
+        playlistCoverTarget?.let { playlistId ->
+            PlaylistCoverEditorDialog(
+                currentArtwork = PlaylistArtworkStore.get(playlistId)?.toURI()?.toString(),
+                selectedUri = playlistCoverUri,
+                onPick = { playlistCoverPicker.launch(ActivityResultContracts.PickVisualMedia.ImageOnly) },
+                onSave = { uri ->
+                    try {
+                        PlaylistArtworkStore.save(context, playlistId, uri)
+                        playlistCoverTarget = null
+                        playlistCoverUri = null
+                    } catch (error: Exception) {
+                        Toast.makeText(
+                            context,
+                            error.message ?: context.getString(R.string.playlist_cover_invalid),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                },
+                onRemove = {
+                    PlaylistArtworkStore.remove(playlistId)
+                    playlistCoverTarget = null
+                    playlistCoverUri = null
+                },
+                onDismiss = {
+                    playlistCoverTarget = null
+                    playlistCoverUri = null
                 },
             )
         }

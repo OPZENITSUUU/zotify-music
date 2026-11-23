@@ -7,15 +7,18 @@ import android.net.Uri
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Stores user playlist covers outside the cache so they survive restarts and APK updates. */
 object PlaylistArtworkStore {
     private const val DIRECTORY = "playlist-artwork"
     private const val MAX_BYTES = 8L * 1024L * 1024L
     private lateinit var root: File
+    val revision = MutableStateFlow(0)
 
     fun init(context: Context) {
         root = File(context.filesDir, DIRECTORY).apply { mkdirs() }
+        revision.value++
     }
 
     fun fileFor(playlistId: String): File {
@@ -25,7 +28,7 @@ object PlaylistArtworkStore {
 
     fun get(playlistId: String): File? = fileFor(playlistId).takeIf { it.isFile && it.length() in 1..MAX_BYTES }
 
-    fun remove(playlistId: String): Boolean = fileFor(playlistId).delete()
+    fun remove(playlistId: String): Boolean = fileFor(playlistId).delete().also { if (it) revision.value++ }
 
     @Throws(IOException::class)
     fun save(context: Context, playlistId: String, uri: Uri): File {
@@ -45,6 +48,7 @@ object PlaylistArtworkStore {
             }
             check(temporary.length() in 1..MAX_BYTES) { "Image is too large" }
             if (!temporary.renameTo(destination)) error("Unable to save image")
+            revision.value++
             return destination
         } finally {
             if (square !== bitmap) square.recycle()
