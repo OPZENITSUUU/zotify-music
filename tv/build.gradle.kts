@@ -99,7 +99,7 @@ android {
         // apart by name (ZotifyMusicTV.apk, ZotifyMusicTV_x86_64.apk), so
         // the updater installs the TV app here, never the phone app. See
         // AppUpdateChecker.apkAssetUrl.
-        buildConfigField("String", "UPDATE_APK_PREFIX", "\"ZotifyMusicTV-\"")
+        buildConfigField("String", "UPDATE_APK_PREFIX", "\"ZotifyMusicTV\"")
     }
 
     splits {
