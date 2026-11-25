@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -641,8 +642,8 @@ private fun RichPresencePreview(
         if (button1Visible || button2Visible) {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (button1Visible) PresenceButton(button1Text.ifBlank { "YouTube Music" })
-                if (button2Visible) PresenceButton(button2Text.ifBlank { "Spotify" })
+                if (button1Visible) PresenceButton(button1Text.ifBlank { "YouTube Music" }, Modifier.weight(1f))
+                if (button2Visible) PresenceButton(button2Text.ifBlank { "Spotify" }, Modifier.weight(1f))
             }
         }
     }
@@ -650,9 +651,9 @@ private fun RichPresencePreview(
 
 /** Discord's flat, full-width secondary button. */
 @Composable
-private fun PresenceButton(label: String) {
+private fun PresenceButton(label: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.9f))
