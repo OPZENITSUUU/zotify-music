@@ -99,17 +99,17 @@ class AuthStore(context: Context) {
     /** Discord user OAuth access token for the Social Layer gateway. */
     var discordSessionToken: String?
         get() = prefs.getString(KEY_DISCORD_SESSION_TOKEN, null)
-        set(value) = prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).commit()
+        set(value) { prefs.edit().putString(KEY_DISCORD_SESSION_TOKEN, value).commit() }
 
     /** Discord OAuth refresh token, encrypted at rest and rotated on refresh. */
     var discordRefreshToken: String?
         get() = prefs.getString(KEY_DISCORD_REFRESH_TOKEN, null)
-        set(value) = prefs.edit().putString(KEY_DISCORD_REFRESH_TOKEN, value).commit()
+        set(value) { prefs.edit().putString(KEY_DISCORD_REFRESH_TOKEN, value).commit() }
 
     /** Unix epoch milliseconds when the current Discord access token expires. */
     var discordTokenExpiresAt: Long
         get() = prefs.getLong(KEY_DISCORD_TOKEN_EXPIRES_AT, 0L)
-        set(value) = prefs.edit().putLong(KEY_DISCORD_TOKEN_EXPIRES_AT, value).commit()
+        set(value) { prefs.edit().putLong(KEY_DISCORD_TOKEN_EXPIRES_AT, value).commit() }
 
     /** PKCE verifier for the one OAuth flow currently waiting on the browser. */
     var discordOAuthCodeVerifier: String?
