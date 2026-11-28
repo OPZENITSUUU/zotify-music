@@ -36,7 +36,9 @@ internal object OfflineHls {
             }.build()
             val playlist = Http.client.newCall(request(url)).execute().use { response ->
                 if (!response.isSuccessful) error("HLS playlist failed (HTTP ${response.code})")
-                response.body?.string() ?: error("Empty HLS playlist")
+                val body = response.body?.byteStream() ?: error("Empty HLS playlist")
+                body.use { OfflineMediaLimits.readBounded(it, OfflineMediaLimits.MAX_MANIFEST_BYTES) }
+                    .toString(Charsets.UTF_8)
             }
             if (!playlist.startsWith("#EXTM3U")) error("Invalid HLS playlist")
             if (playlist.contains("#EXT-X-KEY:") && !playlist.contains("METHOD=NONE")) {
@@ -50,18 +52,31 @@ internal object OfflineHls {
                 references.add(0, it)
             }
             if (references.isEmpty()) error("HLS playlist has no fragments")
+            val uniqueReferences = references.distinct()
+            if (uniqueReferences.size > OfflineMediaLimits.MAX_SEGMENTS) {
+                error("HLS playlist exceeds the segment limit")
+            }
             val localNames = linkedMapOf<String, String>()
-            references.distinct().forEachIndexed { index, remote ->
+            var totalBytes = 0L
+            uniqueReferences.forEachIndexed { index, remote ->
                 coroutineContext.ensureActive()
                 val target = base.resolve(remote)?.toString() ?: error("Invalid HLS fragment")
                 val local = "segment-${index.toString().padStart(5, '0')}.m4s"
                 Http.client.newCall(request(target)).execute().use { response ->
                     if (!response.isSuccessful) error("HLS fragment failed (HTTP ${response.code})")
-                    response.body?.byteStream()?.use { input -> File(root, local).outputStream().use(input::copyTo) }
+                    response.body?.byteStream()?.use { input ->
+                        File(root, local).outputStream().use { output ->
+                            val limit = minOf(
+                                OfflineMediaLimits.MAX_SEGMENT_BYTES,
+                                OfflineMediaLimits.MAX_TRACK_BYTES - totalBytes,
+                            )
+                            totalBytes += OfflineMediaLimits.copyBounded(input, output, limit)
+                        }
+                    }
                         ?: error("Empty HLS fragment")
                 }
                 localNames[remote] = local
-                onProgress((index + 1).toLong(), references.distinct().size.toLong())
+                onProgress((index + 1).toLong(), uniqueReferences.size.toLong())
             }
             val localPlaylist = playlist
                 .replace(Regex("""(URI=\")([^\"]+)(\")""")) { match ->

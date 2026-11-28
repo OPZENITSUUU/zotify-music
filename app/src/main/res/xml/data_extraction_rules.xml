@@ -5,6 +5,8 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="bitchord_settings.xml" />
+        <exclude domain="file" path="listening/" />
         <exclude domain="sharedpref" path="bitchord_auth.xml" />
         <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_sources.xml" />
@@ -15,6 +17,8 @@
         <exclude domain="sharedpref" path="bitchord_party_queue_stash.xml" />
     </cloud-backup>
     <device-transfer>
+        <exclude domain="sharedpref" path="bitchord_settings.xml" />
+        <exclude domain="file" path="listening/" />
         <exclude domain="sharedpref" path="bitchord_auth.xml" />
         <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_sources.xml" />

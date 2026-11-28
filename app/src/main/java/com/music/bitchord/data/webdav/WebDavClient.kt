@@ -245,6 +245,9 @@ object WebDavClient {
             val href = node.getElementsByTagNameNS("*", "href").item(0)?.textContent?.trim().orEmpty()
             if (href.isEmpty()) continue
             val url = resolveHref(dirUrl, href)
+            // A server-controlled absolute href must never redirect an
+            // authenticated recursive listing or later media request elsewhere.
+            if (!WebDavConfig.isSameOrigin(url, dirUrl)) continue
             if (isSameUrl(url, dirUrl)) continue
             val displayName = node.getElementsByTagNameNS("*", "displayname")
                 .item(0)?.textContent?.trim().orEmpty()
@@ -261,20 +264,8 @@ object WebDavClient {
 
     fun resolveHref(baseUrl: String, href: String): String {
         val trimmed = href.trim()
-        if (trimmed.startsWith("http://", ignoreCase = true) ||
-            trimmed.startsWith("https://", ignoreCase = true)
-        ) {
-            return trimmed
-        }
-        val base = WebDavConfig.normalizeUrl(baseUrl)
-        val schemeHost = base.substringBefore('/', "").let {
-            // Keep "https://host" (and port) only.
-            val schemeEnd = base.indexOf("://")
-            if (schemeEnd < 0) return trimmed
-            val pathStart = base.indexOf('/', schemeEnd + 3)
-            if (pathStart < 0) base else base.substring(0, pathStart)
-        }
-        return if (trimmed.startsWith("/")) "$schemeHost$trimmed" else "$base/$trimmed"
+        val base = WebDavConfig.normalizeUrl(baseUrl).trimEnd('/') + "/"
+        return runCatching { java.net.URI(base).resolve(trimmed).toString() }.getOrDefault(trimmed)
     }
 
     private fun isSameUrl(a: String, b: String): Boolean {

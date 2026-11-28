@@ -11,13 +11,29 @@ plugins {
 
 /**
  * Signing details, kept out of the repository in `keystore.properties`
- * (see keystore.properties.example). Absent on a fresh checkout, in which case
- * the release build still runs and simply comes out unsigned rather than
- * failing — only whoever holds the key can produce a shippable APK.
+ * (see keystore.properties.example). Debug and benchmark builds work without it;
+ * production APK packaging is rejected unless the configured key is present.
  */
 val signing = Properties().apply {
     val file = rootProject.file("keystore.properties")
     if (file.exists()) file.inputStream().use { load(it) }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    val productionPackageRequested = graph.allTasks.any { task ->
+        task.project == project &&
+            (task.name.startsWith("assemble") || task.name.startsWith("package") || task.name.startsWith("bundle")) &&
+            ("ProdRelease" in task.name || "PersonalRelease" in task.name)
+    }
+    if (productionPackageRequested) {
+        val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        val missing = required.filter { signing.getProperty(it).isNullOrBlank() }
+        val store = signing.getProperty("storeFile")?.let { rootProject.file(it) }
+        if (missing.isNotEmpty() || store?.isFile != true) {
+            val reason = missing.joinToString().ifBlank { "keystore file" }
+            throw GradleException("Production APK packaging requires complete signing material; missing=$reason")
+        }
+    }
 }
 
 val localProps = Properties().apply {
@@ -176,8 +192,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Null without a keystore to sign with: the build then produces
-            // app-release-unsigned.apk instead of failing outright.
+            // The task-graph guard above rejects production packaging without this config.
             signingConfig = signingConfigs.findByName("release")
         }
         /*

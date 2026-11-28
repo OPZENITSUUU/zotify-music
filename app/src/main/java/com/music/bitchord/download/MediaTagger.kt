@@ -41,6 +41,9 @@ object MediaTagger {
 
     /** Long side of the embedded cover — plenty for a lock screen or a car head unit, without ballooning the file. */
     private const val COVER_MAX_SIDE = 1000
+    private const val COVER_MAX_BYTES = 8L * 1024 * 1024
+    private const val COVER_MAX_SOURCE_SIDE = 16_384
+    private const val COVER_MAX_SOURCE_PIXELS = 32_000_000L
 
     /**
      * How much of a FLAC has to be read to be sure the whole metadata chain is
@@ -414,8 +417,22 @@ object MediaTagger {
             val request = okhttp3.Request.Builder().url(url).build()
             Http.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
-                val raw = response.body?.bytes() ?: return@runCatching null
-                val bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@runCatching null
+                val body = response.body?.byteStream() ?: return@runCatching null
+                val raw = body.use { OfflineMediaLimits.readBounded(it, COVER_MAX_BYTES) }
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
+                    bounds.outWidth > COVER_MAX_SOURCE_SIDE || bounds.outHeight > COVER_MAX_SOURCE_SIDE ||
+                    bounds.outWidth.toLong() * bounds.outHeight.toLong() > COVER_MAX_SOURCE_PIXELS
+                ) return@runCatching null
+                var sample = 1
+                while (max(bounds.outWidth, bounds.outHeight) / sample > COVER_MAX_SIDE * 2) sample *= 2
+                val bitmap = BitmapFactory.decodeByteArray(
+                    raw,
+                    0,
+                    raw.size,
+                    BitmapFactory.Options().apply { inSampleSize = sample },
+                ) ?: return@runCatching null
                 val scaled = downscale(bitmap, COVER_MAX_SIDE)
                 val out = ByteArrayOutputStream()
                 scaled.compress(Bitmap.CompressFormat.JPEG, 92, out)

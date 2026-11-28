@@ -37,6 +37,8 @@ class WebDavTest {
         assertFalse(WebDavConfig.isConfigured(""))
         assertFalse(WebDavConfig.isConfigured("not a url"))
         assertTrue(WebDavConfig.isConfigured("https://cloud.example.com/music"))
+        assertEquals("https://cloud.example.com:443", WebDavConfig.originOf("https://cloud.example.com/music"))
+        assertEquals("http://cloud.example.com:8080", WebDavConfig.originOf("http://cloud.example.com:8080/music"))
     }
 
     @Test
@@ -159,13 +161,15 @@ class WebDavTest {
     }
 
     @Test
-    fun authorizesOnlyConfiguredHost() {
+    fun authorizesOnlyConfiguredOrigin() {
         WebDavAuth.update("https://cloud.example.com/music", "user", "pass")
-        assertTrue(WebDavAuth.shouldAuthorize("cloud.example.com"))
-        assertFalse(WebDavAuth.shouldAuthorize("other.example.com"))
+        assertTrue(WebDavAuth.shouldAuthorize("https://cloud.example.com:443/Music/a.mp3"))
+        assertFalse(WebDavAuth.shouldAuthorize("http://cloud.example.com/Music/a.mp3"))
+        assertFalse(WebDavAuth.shouldAuthorize("https://cloud.example.com:8443/Music/a.mp3"))
+        assertFalse(WebDavAuth.shouldAuthorize("https://other.example.com/Music/a.mp3"))
         assertNotNull(WebDavAuth.authHeader)
         WebDavAuth.update("", "", "")
-        assertFalse(WebDavAuth.shouldAuthorize("cloud.example.com"))
+        assertFalse(WebDavAuth.shouldAuthorize("https://cloud.example.com/Music/a.mp3"))
     }
 
     @Test
@@ -381,5 +385,22 @@ ${rows.joinToString("\n")}
             WebDavClient.ensureCollection(dir, "", "").getOrThrow()
             assertEquals("MKCOL", server.takeRequest().method)
         }
+    }
+
+    @Test
+    fun parseMultistatus_ignoresForeignOriginEntries() {
+        val xml = """<d:multistatus xmlns:d="DAV:"><d:response><d:href>https://attacker.example/steal.mp3</d:href><d:propstat><d:prop><d:displayname>steal.mp3</d:displayname><d:resourcetype/></d:prop></d:propstat></d:response></d:multistatus>"""
+        assertTrue(WebDavClient.parseMultistatus(xml, "https://cloud.example.com/music").isEmpty())
+    }
+
+    @Test
+    fun coilAuth_attachesCredentialOnlyForTheServer() {
+        val credential = "Basic dXNlcjpwYXNz"
+        WebDavAuth.update("https://cloud.example.com:443", credential)
+        assertEquals(credential, WebDavCoilAuth.authHeaderFor("https://cloud.example.com/cover.jpg"))
+        assertNull(WebDavCoilAuth.authHeaderFor("https://attacker.example/cover.jpg"))
+        val alreadyAuthenticated = NetworkHeaders.Builder().set("Authorization", "Basic other").build()
+        assertNull(WebDavCoilAuth.authHeaderFor("https://cloud.example.com/cover.jpg", alreadyAuthenticated))
+        WebDavAuth.update(null, null)
     }
 }

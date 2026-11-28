@@ -11,6 +11,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -18,6 +20,9 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import java.util.Locale
+
+/** Encode data-only export arguments as JavaScript-compatible JSON expressions. */
+internal fun encodeJsArguments(args: List<JsonElement>): String = args.joinToString(",") { it.toString() }
 
 /**
  * Sandboxed QuickJS engine pool for executing module JS.
@@ -228,11 +233,11 @@ internal object QuickJsExecutor {
 
     // ── Call ─────────────────────────────────────────────────────────────
 
-    suspend fun callExport(moduleId: String, functionName: String, args: List<String>): Result<String> {
+    suspend fun callExport(moduleId: String, functionName: String, args: List<JsonElement>): Result<String> {
         val pool = synchronized(engineLock) { pools[moduleId] }
             ?: return Result.failure(IllegalStateException("Module $moduleId is not loaded"))
 
-        TrackLog.d(TAG, "QuickJsExecutor.callExport($moduleId, $functionName) argCount=${args.size} argLengths=${args.map(String::length)}")
+        TrackLog.d(TAG, "QuickJsExecutor.callExport($moduleId, $functionName) argCount=${args.size} argLengths=${args.map { it.toString().length }}")
         return withContext(Dispatchers.Default) {
             val qjs = try {
                 acquire(moduleId, pool)
@@ -259,12 +264,13 @@ internal object QuickJsExecutor {
     ): Result<String> =
         run {
             runCatching {
-                val hasFn = qjs.evaluate<String>("typeof __spine_mod['$functionName']")
+                val functionLiteral = JsonPrimitive(functionName).toString()
+                val hasFn = qjs.evaluate<String>("typeof __spine_mod[$functionLiteral]")
                 if (hasFn != "function") {
                     throw IllegalStateException("$functionName is not a function on module $moduleId")
                 }
 
-                val argsStr = args.joinToString(",")
+                val argsStr = encodeJsArguments(args)
 
                 // evaluate() converts a Promise via toString() instead of awaiting it.
                 // Workaround: store the resolved JSON in a global var inside the async
@@ -273,9 +279,9 @@ internal object QuickJsExecutor {
                     """
                     var __spine_resolved_json = undefined;
                     (async function() {
-                        var __fn = __spine_mod['$functionName'];
+                        var __fn = __spine_mod[$functionLiteral];
                         if (!__fn) {
-                            __spine_resolved_json = JSON.stringify({ error: '$functionName not found' });
+                            __spine_resolved_json = JSON.stringify({ error: $functionLiteral + ' not found' });
                             return;
                         }
                         try {

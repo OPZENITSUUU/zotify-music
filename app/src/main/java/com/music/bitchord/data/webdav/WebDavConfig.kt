@@ -54,6 +54,21 @@ object WebDavConfig {
         java.net.URI(normalizeUrl(url)).host?.lowercase(Locale.ROOT)
     }.getOrNull()?.takeIf { it.isNotBlank() }
 
+    /** Canonical origin used to prevent credentials crossing scheme/port boundaries. */
+    fun originOf(url: String): String? {
+        val uri = runCatching { java.net.URI(normalizeUrl(url)) }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase(Locale.ROOT) ?: return null
+        if (scheme != "http" && scheme != "https") return null
+        val host = uri.host?.lowercase(Locale.ROOT)?.takeIf { it.isNotBlank() } ?: return null
+        val port = if (uri.port >= 0) uri.port else if (scheme == "https") 443 else 80
+        return "$scheme://$host:$port"
+    }
+
+    fun isSameOrigin(first: String, second: String): Boolean {
+        val expected = originOf(first) ?: return false
+        return expected == originOf(second)
+    }
+
     fun isAudioFile(name: String): Boolean {
         val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
         return ext in audioExtensions
@@ -92,4 +107,4 @@ object WebDavConfig {
 
 /** Publishes the saved server's credentials to the shared HTTP client. */
 fun WebDavAuth.update(url: String, username: String, password: String) =
-    update(WebDavConfig.hostOf(url), WebDavConfig.basicAuthHeader(username, password))
+    update(WebDavConfig.originOf(url), WebDavConfig.basicAuthHeader(username, password))
