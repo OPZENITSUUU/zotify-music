@@ -120,6 +120,7 @@ import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.discord.DiscordRPC
+import com.music.bitchord.data.discord.SpotifyMediaSessionBridge
 import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.stats.ListeningRecorder
@@ -7162,12 +7163,24 @@ class PlaybackService : MediaLibraryService() {
         // The setting is what the track plays at for all but the handoff, so
         // it is both the honest tag and the right divisor for the countdown.
         val speed = AppSettings.playbackSpeed.value
+        val isPlaying = exoPlayer.isPlaying
         val audioQuality = discordAudioQualityLine(NerdStats.current.value)
             .takeIf { AppSettings.discordShowAudioQuality.value }
 
         discordUpdateJob?.cancel()
         discordPresenceUp = true
         discordUpdateJob = scope.launch(Dispatchers.IO) {
+            // Keep Discord's native Android Spotify integration in sync with
+            // Zotify playback. The user's normal/custom RPC remains independent.
+            if (AppSettings.discordSpotifySpoof.value) {
+                SpotifyMediaSessionBridge.publishTrack(
+                    context = applicationContext,
+                    title = song.title,
+                    artist = song.artist,
+                    positionMs = positionMs,
+                    playing = isPlaying,
+                )
+            }
             rpc.updateSong(
                 song = song,
                 currentPlaybackTimeMillis = positionMs,
@@ -7205,6 +7218,9 @@ class PlaybackService : MediaLibraryService() {
         discordPresenceUp = false
         discordUpdateJob?.cancel()
         discordUpdateJob = scope.launch(Dispatchers.IO) {
+            if (AppSettings.discordSpotifySpoof.value) {
+                SpotifyMediaSessionBridge.publishPlaybackState(applicationContext, false, 0L)
+            }
             runCatching { rpc.close() }
         }
     }
