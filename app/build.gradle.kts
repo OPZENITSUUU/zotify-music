@@ -1,6 +1,8 @@
 import java.util.Properties
 import java.security.MessageDigest
 import java.io.FileInputStream
+import org.gradle.api.Action
+import org.gradle.api.execution.TaskExecutionGraph
 
 plugins {
     id("com.android.application")
@@ -19,7 +21,7 @@ val signing = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-gradle.taskGraph.whenReady { graph ->
+gradle.taskGraph.whenReady(Action<TaskExecutionGraph> { graph ->
     val productionPackageRequested = graph.allTasks.any { task ->
         task.project == project &&
             (task.name.startsWith("assemble") || task.name.startsWith("package") || task.name.startsWith("bundle")) &&
@@ -34,7 +36,7 @@ gradle.taskGraph.whenReady { graph ->
             throw GradleException("Production APK packaging requires complete signing material; missing=$reason")
         }
     }
-}
+})
 
 val localProps = Properties().apply {
     val file = rootProject.file("local.properties")
