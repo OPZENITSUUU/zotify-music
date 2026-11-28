@@ -260,7 +260,7 @@ internal object QuickJsExecutor {
         qjs: QuickJs,
         moduleId: String,
         functionName: String,
-        args: List<String>,
+        args: List<JsonElement>,
     ): Result<String> =
         run {
             runCatching {
