@@ -250,7 +250,9 @@ jobs:
             GitHub provides **Source code (zip)** and **Source code (tar.gz)** links automatically for this release.
 
             ### New in this release
-            - **Settings → More → What’s new:** read the complete v1.11.17 feature and compatibility highlights as a scrollable bullet list inside the app.
+            - **Settings → More → What’s new:** read the complete v1.11.18 feature and compatibility highlights as a scrollable bullet list inside the app.
+            - **Library visibility:** hide albums or manage artists without deleting songs, downloads, playlists, or metadata, then restore them anytime.
+            - **Custom playlist covers:** choose an image with Android Photo Picker, preview and save it, or remove it to restore the default artwork.
             - **Android TV updater:** universal and ABI-specific TV APKs are now correctly recognized by the in-app updater.
             - **Mochy-compatible Appearance Skin Manager:** import Look skins from ZIP/JSON files, HTTPS links, and public GitHub repositories or releases.
             - **Review before installing:** inspect skin metadata and supported/unsupported settings before applying a pack.

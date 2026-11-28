@@ -187,6 +187,7 @@ fun SettingsScreen(
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onAccountScrobbling: () -> Unit,
+    onLibraryManagement: () -> Unit,
     onEqualizer: () -> Unit,
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
@@ -514,6 +515,17 @@ fun SettingsScreen(
                     } ?: stringResource(R.string.listen_together_subtitle),
                     badge = party.members.size.takeIf { party.inParty && it > 1 }?.toString(),
                     onClick = onListenTogether,
+                )
+            }
+        }
+
+        SearchableSettingsGroup(search, header = stringResource(R.string.library)) {
+            row("manage library", "hidden albums", "artists", "library") {
+                SettingsRow(
+                    icon = Icons.Rounded.LibraryMusic,
+                    title = stringResource(R.string.manage_library),
+                    subtitle = stringResource(R.string.hidden_albums),
+                    onClick = onLibraryManagement,
                 )
             }
         }

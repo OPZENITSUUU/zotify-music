@@ -1434,4 +1434,15 @@
 
     <string name="appearance_preview_zotify">ZOTIFY MUSIC</string>
 
+    <string name="hide_album">Hide album</string>
+    <string name="manage_library">Manage Library</string>
+    <string name="hidden_albums">Hidden albums</string>
+    <string name="unhide">Unhide</string>
+    <string name="manage_artists">Manage artists</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="save_apply">Save / Apply</string>
+    <string name="change_playlist_cover">Change playlist cover</string>
+    <string name="remove_playlist_cover">Remove custom cover</string>
+    <string name="choose_playlist_cover">Choose playlist cover</string>
+    <string name="playlist_cover_invalid">That image could not be read. Choose another image.</string>
 </resources>

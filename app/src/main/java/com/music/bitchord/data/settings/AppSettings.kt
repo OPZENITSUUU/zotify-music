@@ -603,6 +603,10 @@ object AppSettings {
     /** Layout used by the Recents shelf on Play; compact tracks are the default. */
     val homeRecentsViewType = MutableStateFlow(LibraryViewType.LIST)
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
+    /** Browse ids hidden from account-library album shelves; metadata and files stay intact. */
+    val hiddenLibraryAlbumIds = MutableStateFlow<Set<String>>(emptySet())
+    /** Browse ids hidden from account-library artist shelves; metadata and files stay intact. */
+    val hiddenLibraryArtistIds = MutableStateFlow<Set<String>>(emptySet())
 
     /**
      * Each album/playlist page's track-list order, keyed by browse id —
@@ -967,6 +971,8 @@ object AppSettings {
         librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
             ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
             ?: LibrarySort.DEFAULT
+        hiddenLibraryAlbumIds.value = prefs.getStringSet(KEY_HIDDEN_LIBRARY_ALBUMS, emptySet()).orEmpty()
+        hiddenLibraryArtistIds.value = prefs.getStringSet(KEY_HIDDEN_LIBRARY_ARTISTS, emptySet()).orEmpty()
         detailSongSorts.value = readDetailSongSorts()
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
@@ -1812,6 +1818,18 @@ object AppSettings {
         librarySort.value = value
         prefs.edit().putString(KEY_LIBRARY_SORT, value.name).apply()
     }
+    fun setHiddenLibraryAlbums(ids: Set<String>) {
+        val clean = ids.filter { it.isNotBlank() }.toSet()
+        hiddenLibraryAlbumIds.value = clean
+        prefs.edit().putStringSet(KEY_HIDDEN_LIBRARY_ALBUMS, clean).apply()
+    }
+    fun hideLibraryAlbum(id: String) = setHiddenLibraryAlbums(hiddenLibraryAlbumIds.value + id)
+    fun unhideLibraryAlbum(id: String) = setHiddenLibraryAlbums(hiddenLibraryAlbumIds.value - id)
+    fun setHiddenLibraryArtists(ids: Set<String>) {
+        val clean = ids.filter { it.isNotBlank() }.toSet()
+        hiddenLibraryArtistIds.value = clean
+        prefs.edit().putStringSet(KEY_HIDDEN_LIBRARY_ARTISTS, clean).apply()
+    }
 
     fun setDetailSongSort(browseId: String, value: SongSort) {
         detailSongSorts.value = detailSongSorts.value + (browseId to value)
@@ -2167,6 +2185,8 @@ object AppSettings {
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"
     private const val KEY_LIBRARY_SORT = "library_sort"
+    private const val KEY_HIDDEN_LIBRARY_ALBUMS = "hidden_library_albums"
+    private const val KEY_HIDDEN_LIBRARY_ARTISTS = "hidden_library_artists"
     private const val KEY_DETAIL_SONG_SORTS = "detail_song_sorts"
     private const val KEY_LOCAL_MUSIC_VIEW_TYPE = "local_music_view_type"
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"
