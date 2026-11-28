@@ -1,7 +1,5 @@
 import java.util.Properties
 import java.io.FileInputStream
-import org.gradle.api.Action
-import org.gradle.api.execution.TaskExecutionGraph
 
 plugins {
     id("com.android.application")
@@ -20,22 +18,20 @@ val signing = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-gradle.taskGraph.whenReady(Action<TaskExecutionGraph> { graph ->
-    val productionPackageRequested = graph.allTasks.any { task ->
-        task.project == project &&
-            (task.name.startsWith("assemble") || task.name.startsWith("package") || task.name.startsWith("bundle")) &&
-            ("ProdRelease" in task.name || "PersonalRelease" in task.name)
+val productionPackageRequested = gradle.startParameter.taskNames.any { taskName ->
+    val task = taskName.substringAfterLast(':')
+    (task.startsWith("assemble") || task.startsWith("package") || task.startsWith("bundle")) &&
+        ("ProdRelease" in task || "PersonalRelease" in task)
+}
+if (productionPackageRequested) {
+    val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    val missing = required.filter { signing.getProperty(it).isNullOrBlank() }
+    val store = signing.getProperty("storeFile")?.let { rootProject.file(it) }
+    if (missing.isNotEmpty() || store?.isFile != true) {
+        val reason = missing.joinToString().ifBlank { "keystore file" }
+        throw GradleException("Production TV APK packaging requires complete signing material; missing=$reason")
     }
-    if (productionPackageRequested) {
-        val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
-        val missing = required.filter { signing.getProperty(it).isNullOrBlank() }
-        val store = signing.getProperty("storeFile")?.let { rootProject.file(it) }
-        if (missing.isNotEmpty() || store?.isFile != true) {
-            val reason = missing.joinToString().ifBlank { "keystore file" }
-            throw GradleException("Production TV APK packaging requires complete signing material; missing=$reason")
-        }
-    }
-})
+}
 
 val localProps = Properties().apply {
     val file = rootProject.file("local.properties")
