@@ -220,7 +220,7 @@ fun DiscordScreen(
 
         SettingsGroup(
             header = stringResource(R.string.rich_presence),
-            footer = "Your activity appears on your personal Discord profile, not a bot profile. Spotify-style mode changes the activity label while keeping your custom text, artwork and buttons.",
+            footer = "Your activity appears on your personal Discord profile, not a bot profile. Custom text, artwork, activity type/name and buttons work in both standard RPC and Spotify-style mode.",
         ) {
             SettingsRow(
                 icon = discordIcon,
