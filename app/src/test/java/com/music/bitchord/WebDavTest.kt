@@ -131,21 +131,23 @@ class WebDavTest {
 
     @Test
     fun coilAuth_attachesCredentialOnlyForTheServer() {
-        WebDavAuth.update("https://cloud.example.com/music", "user", "pass")
+        WebDavAuth.update("https://cloud.example.com:443", "user", "pass")
         try {
             assertEquals(
                 "Basic dXNlcjpwYXNz",
-                WebDavCoilAuth.authHeaderFor("https://cloud.example.com/Music/Album/cover.jpg"),
+                WebDavCoilAuth.authHeaderFor("https://cloud.example.com/cover.jpg"),
             )
             // Anything else passes through untouched.
             assertNull(WebDavCoilAuth.authHeaderFor("https://other.example.com/cover.jpg"))
+            assertNull(WebDavCoilAuth.authHeaderFor("http://cloud.example.com/cover.jpg"))
+            assertNull(WebDavCoilAuth.authHeaderFor("https://cloud.example.com:8443/cover.jpg"))
             assertNull(WebDavCoilAuth.authHeaderFor("not a url"))
             assertNull(WebDavCoilAuth.authHeaderFor(null))
             assertNull(WebDavCoilAuth.authHeaderFor(42))
             // A request carrying its own credential is never overridden.
             assertNull(
                 WebDavCoilAuth.authHeaderFor(
-                    "https://cloud.example.com/Music/Album/cover.jpg",
+                    "https://cloud.example.com/cover.jpg",
                     NetworkHeaders.Builder().set("Authorization", "Bearer x").build(),
                 ),
             )
@@ -393,14 +395,4 @@ ${rows.joinToString("\n")}
         assertTrue(WebDavClient.parseMultistatus(xml, "https://cloud.example.com/music").isEmpty())
     }
 
-    @Test
-    fun coilAuth_attachesCredentialOnlyForTheServer() {
-        val credential = "Basic dXNlcjpwYXNz"
-        WebDavAuth.update("https://cloud.example.com:443", credential)
-        assertEquals(credential, WebDavCoilAuth.authHeaderFor("https://cloud.example.com/cover.jpg"))
-        assertNull(WebDavCoilAuth.authHeaderFor("https://attacker.example/cover.jpg"))
-        val alreadyAuthenticated = NetworkHeaders.Builder().set("Authorization", "Basic other").build()
-        assertNull(WebDavCoilAuth.authHeaderFor("https://cloud.example.com/cover.jpg", alreadyAuthenticated))
-        WebDavAuth.update(null, null)
-    }
 }

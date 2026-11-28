@@ -1,7 +1,7 @@
 package com.music.bitchord.data.sources.module
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.parseToJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -11,7 +11,7 @@ class QuickJsExecutorTest {
         val hostileLookingQuery = "x\" ); globalThis.pwned = true; (\""
         val encoded = encodeJsArguments(listOf(JsonPrimitive(hostileLookingQuery), JsonPrimitive(10)))
 
-        assertEquals(JsonPrimitive(hostileLookingQuery), encoded.substringBefore(",").parseToJsonElement())
+        assertEquals(JsonPrimitive(hostileLookingQuery), Json.parseToJsonElement(encoded.substringBefore(",")))
         assertEquals("10", encoded.substringAfter(","))
     }
 
@@ -24,7 +24,7 @@ class QuickJsExecutorTest {
                 })
             }),
         )
-        val parsed = encoded.parseToJsonElement()
+        val parsed = Json.parseToJsonElement(encoded)
         assertEquals(encoded, parsed.toString())
     }
 }
