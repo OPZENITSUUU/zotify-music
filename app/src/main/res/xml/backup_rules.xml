@@ -7,8 +7,12 @@
    Android Keystore key that never leaves the device: restored anywhere, they
    can't be decrypted (see EncryptedPrefs). Their plain fallbacks are excluded
    because they hold the same credentials in cleartext.
+   The general settings file also contains legacy service credentials, and
+   listening history is documented as local-only; neither belongs in OS backup.
 -->
 <full-backup-content>
+    <exclude domain="sharedpref" path="bitchord_settings.xml" />
+    <exclude domain="file" path="listening/" />
     <exclude domain="sharedpref" path="bitchord_auth.xml" />
     <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
     <exclude domain="sharedpref" path="bitchord_sources.xml" />

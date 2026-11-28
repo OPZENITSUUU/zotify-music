@@ -86,7 +86,9 @@ internal object OfflineDash {
             }.build()
             val manifest = Http.client.newCall(request(url)).execute().use { response ->
                 if (!response.isSuccessful) error("DASH manifest failed (HTTP ${response.code})")
-                response.body?.string() ?: error("Empty DASH manifest")
+                val body = response.body?.byteStream() ?: error("Empty DASH manifest")
+                body.use { OfflineMediaLimits.readBounded(it, OfflineMediaLimits.MAX_MANIFEST_BYTES) }
+                    .toString(Charsets.UTF_8)
             }
             val plan = parse(manifest)
             val base = url.toHttpUrlOrNull() ?: error("Invalid DASH URL")
@@ -95,13 +97,22 @@ internal object OfflineDash {
             // matches what OfflineHls produces for the same stream — the
             // `#EXT-X-MAP` fragment is index 0 there too.
             val remotes = listOf(plan.initialization) + plan.media
+            var totalBytes = 0L
             remotes.forEachIndexed { index, remote ->
                 coroutineContext.ensureActive()
                 val target = base.resolve(remote)?.toString() ?: error("Invalid DASH segment")
                 Http.client.newCall(request(target)).execute().use { response ->
                     if (!response.isSuccessful) error("DASH segment failed (HTTP ${response.code})")
                     val body = response.body?.byteStream() ?: error("Empty DASH segment")
-                    body.use { input -> File(root, localName(index)).outputStream().use(input::copyTo) }
+                    body.use { input ->
+                        File(root, localName(index)).outputStream().use { output ->
+                            val limit = minOf(
+                                OfflineMediaLimits.MAX_SEGMENT_BYTES,
+                                OfflineMediaLimits.MAX_TRACK_BYTES - totalBytes,
+                            )
+                            totalBytes += OfflineMediaLimits.copyBounded(input, output, limit)
+                        }
+                    }
                 }
                 onProgress((index + 1).toLong(), remotes.size.toLong())
             }
@@ -136,6 +147,9 @@ internal object OfflineDash {
      * be right about the manifests that reach a download.
      */
     internal fun parse(manifest: String): Plan {
+        if (manifest.toByteArray(Charsets.UTF_8).size > OfflineMediaLimits.MAX_MANIFEST_BYTES) {
+            error("DASH manifest exceeds the size limit")
+        }
         if (Regex("<ContentProtection", RegexOption.IGNORE_CASE).containsMatchIn(manifest)) {
             error("Encrypted DASH cannot be saved")
         }
@@ -181,7 +195,11 @@ internal object OfflineDash {
                     // `r` is how many times the entry *repeats*, so r="56" is
                     // 57 segments. Reading it as a count drops one segment and
                     // truncates every download by a few seconds.
-                    repeat((of("r")?.toIntOrNull() ?: 0) + 1) { ticks += d }
+                    val repeats = (of("r")?.toIntOrNull() ?: 0).toLong() + 1L
+                    if (repeats <= 0L || ticks.size.toLong() + repeats > OfflineMediaLimits.MAX_SEGMENTS) {
+                        error("DASH manifest exceeds the segment limit")
+                    }
+                    repeat(repeats.toInt()) { ticks += d }
                 }
             }
         if (ticks.isEmpty()) {
@@ -192,7 +210,11 @@ internal object OfflineDash {
             val total = Regex("""mediaPresentationDuration\s*=\s*"([^"]*)"""").find(manifest)
                 ?.groupValues?.get(1)?.let(::isoSeconds)
                 ?: error("DASH manifest states no duration")
-            repeat(max(1, ceil(total / (d / timescale)).toInt())) { ticks += d }
+            val count = ceil(total / (d / timescale))
+            if (!count.isFinite() || count > OfflineMediaLimits.MAX_SEGMENTS) {
+                error("DASH manifest exceeds the segment limit")
+            }
+            repeat(max(1, count.toInt())) { ticks += d }
         }
 
         val media = ticks.indices.map { at ->

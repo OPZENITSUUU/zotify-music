@@ -12,7 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: voidmusic-release-${{ inputs.release_tag || github.ref }}
@@ -22,6 +22,8 @@ jobs:
   release:
     name: Build and publish signed Android APK
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - name: Check out release source
         uses: actions/checkout@v4
@@ -38,6 +40,10 @@ jobs:
           FORCE_PUSHED_TAG: ${{ github.event.forced }}
         run: |
           set -euo pipefail
+          if [[ "$RELEASE_TAG" != "${GITHUB_REF_NAME}" ]]; then
+            echo "::error::The release tag must match the ref selected for this workflow run."
+            exit 1
+          fi
           if [[ "$FORCE_PUSHED_TAG" == "true" ]]; then
             echo "::error::A force-updated release tag cannot be published."
             exit 1

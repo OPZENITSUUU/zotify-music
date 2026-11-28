@@ -3,11 +3,22 @@ name: Android Signed APK Artifact (Manual)
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-prod-release:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Require trusted release ref
+      shell: bash
+      run: |
+        if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+          echo "::error::Signed APK artifacts may only be built from the protected main branch."
+          exit 1
+        fi
+
     - name: Checkout Repository
       uses: actions/checkout@v4
 

@@ -10,13 +10,27 @@ plugins {
 
 /**
  * Signing details, kept out of the repository in `keystore.properties`
- * (see keystore.properties.example). Absent on a fresh checkout, in which case
- * the release build still runs and simply comes out unsigned rather than
- * failing — only whoever holds the key can produce a shippable APK.
+ * (see keystore.properties.example). Debug and benchmark builds work without it;
+ * production APK packaging is rejected unless the configured key is present.
  */
 val signing = Properties().apply {
     val file = rootProject.file("keystore.properties")
     if (file.exists()) file.inputStream().use { load(it) }
+}
+
+val productionPackageRequested = gradle.startParameter.taskNames.any { taskName ->
+    val task = taskName.substringAfterLast(':')
+    (task.startsWith("assemble") || task.startsWith("package") || task.startsWith("bundle")) &&
+        ("ProdRelease" in task || "PersonalRelease" in task)
+}
+if (productionPackageRequested) {
+    val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    val missing = required.filter { signing.getProperty(it).isNullOrBlank() }
+    val store = signing.getProperty("storeFile")?.let { rootProject.file(it) }
+    if (missing.isNotEmpty() || store?.isFile != true) {
+        val reason = missing.joinToString().ifBlank { "keystore file" }
+        throw GradleException("Production TV APK packaging requires complete signing material; missing=$reason")
+    }
 }
 
 val localProps = Properties().apply {
@@ -202,8 +216,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "../app/proguard-rules.pro"
             )
-            // Null without a keystore to sign with: fallback to debug signing
-            // so the release build is fully R8 optimized and directly installable.
+            // Local dev releases use debug signing; the task-graph guard above
+            // prevents this fallback from producing a production artifact.
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
         /*

@@ -126,4 +126,13 @@ class OfflineDashTest {
             runCatching { OfflineDash.parse(timeBased) }.exceptionOrNull()?.message,
         )
     }
+
+    @Test
+    fun `manifest timeline cannot expand beyond segment limit`() {
+        val oversized = STARBOY.replace("r=\"56\"", "r=\"10000\"")
+        assertEquals(
+            "DASH manifest exceeds the segment limit",
+            runCatching { OfflineDash.parse(oversized) }.exceptionOrNull()?.message,
+        )
+    }
 }
