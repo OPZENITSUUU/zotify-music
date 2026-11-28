@@ -1,7 +1,6 @@
 package com.music.bitchord.ui.screens
 
 import android.content.Intent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +22,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.SmartButton
@@ -89,7 +90,7 @@ enum class DiscordActivityKind(val value: String, val verb: String, val label: S
  * rendered by the activity, above the tab bar and mini player, rather than
  * inside the scrolling screen where a full-screen scrim would be trapped.
  */
-enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME, BUTTON_1_TEXT, BUTTON_2_TEXT }
+enum class DiscordDialog { STATUS, ACTIVITY_TYPE, ACTIVITY_NAME, CUSTOM_DETAILS, CUSTOM_STATE, LARGE_IMAGE_TEXT, BUTTON_1_TEXT, BUTTON_2_TEXT, BUTTON_1_URL, BUTTON_2_URL }
 
 private fun statusOf(value: String) =
     DiscordPresenceStatus.entries.firstOrNull { it.value == value } ?: DiscordPresenceStatus.ONLINE
@@ -164,7 +165,6 @@ fun DiscordScreen(
     val spotifySpoof by AppSettings.discordSpotifySpoof.collectAsStateWithLifecycle()
     val useDetails by AppSettings.discordUseDetails.collectAsStateWithLifecycle()
     val showAudioQuality by AppSettings.discordShowAudioQuality.collectAsStateWithLifecycle()
-    val advancedMode by AppSettings.discordAdvancedMode.collectAsStateWithLifecycle()
     val status by AppSettings.discordStatus.collectAsStateWithLifecycle()
     val activityType by AppSettings.discordActivityType.collectAsStateWithLifecycle()
     val activityName by AppSettings.discordActivityName.collectAsStateWithLifecycle()
@@ -172,6 +172,11 @@ fun DiscordScreen(
     val button1Visible by AppSettings.discordButton1Visible.collectAsStateWithLifecycle()
     val button2Text by AppSettings.discordButton2Text.collectAsStateWithLifecycle()
     val button2Visible by AppSettings.discordButton2Visible.collectAsStateWithLifecycle()
+    val customDetails by AppSettings.discordCustomDetails.collectAsStateWithLifecycle()
+    val customState by AppSettings.discordCustomState.collectAsStateWithLifecycle()
+    val largeImageText by AppSettings.discordLargeImageText.collectAsStateWithLifecycle()
+    val button1Url by AppSettings.discordButton1Url.collectAsStateWithLifecycle()
+    val button2Url by AppSettings.discordButton2Url.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
     val connected = sessionToken.isNotEmpty()
@@ -202,7 +207,7 @@ fun DiscordScreen(
 
         if (!connected) {
             SettingsGroup(
-                footer = "Connect with Discord OAuth. Your Discord password and Discord account token are never entered into Zotify.",
+                footer = "Connect your own Discord profile once (not a Zotify bot). Your encrypted login is saved on this device and refreshed automatically; you should not need to reconnect after restarting the app.",
             ) {
                 SettingsRow(
                     icon = discordIcon,
@@ -215,7 +220,7 @@ fun DiscordScreen(
 
         SettingsGroup(
             header = stringResource(R.string.rich_presence),
-            footer = "Your activity appears on your personal Discord profile. Zotify uses Discord OAuth and never asks for your password.",
+            footer = "Your activity appears on your personal Discord profile, not a bot profile. Spotify-style mode changes the activity label while keeping your custom text, artwork and buttons.",
         ) {
             SettingsRow(
                 icon = discordIcon,
@@ -277,7 +282,7 @@ fun DiscordScreen(
             SettingsRow(
                 icon = Icons.Rounded.SmartButton,
                 title = "Spotify-style presence",
-                subtitle = "Show a Spotify-style listening card on your profile (not Spotify-verified).",
+                subtitle = "Shows ‘Listening to Spotify’ on your own Discord profile; custom text, artwork and buttons still apply.",
                 enabled = connected && rpcEnabled,
                 trailing = {
                     Switch(
@@ -294,8 +299,7 @@ fun DiscordScreen(
             )
         }
 
-        AnimatedVisibility(visible = connected && rpcEnabled) {
-            Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth()) {
                 SettingsGroup(header = stringResource(R.string.presence)) {
                     SettingsRow(
                         icon = Icons.Rounded.RadioButtonChecked,
@@ -319,6 +323,31 @@ fun DiscordScreen(
                     )
                 }
                 SettingsGroup(
+                    header = "Custom text & artwork",
+                    footer = "These preferences save on this device even before connecting Discord. Leave a field blank to use the current track's title, artist or artwork text. Discord has two text lines; the progress bar is separate.",
+                ) {
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Rounded.Label,
+                        title = "Details line",
+                        subtitle = customDetails.ifBlank { if (useDetails) "Track title (automatic)" else "Artist (automatic)" },
+                        onClick = { onOpenDialog(DiscordDialog.CUSTOM_DETAILS) },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Rounded.Label,
+                        title = "State line",
+                        subtitle = customState.ifBlank { if (useDetails) "Artist (automatic)" else "Track title (automatic)" },
+                        onClick = { onOpenDialog(DiscordDialog.CUSTOM_STATE) },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Image,
+                        title = "Artwork hover text",
+                        subtitle = largeImageText.ifBlank { "Track title (automatic)" },
+                        onClick = { onOpenDialog(DiscordDialog.LARGE_IMAGE_TEXT) },
+                    )
+                }
+                SettingsGroup(
                     header = "Action buttons",
                     footer = "Buttons open the current track in YouTube Music or Spotify. You can change their labels and turn either one off.",
                 ) {
@@ -326,33 +355,42 @@ fun DiscordScreen(
                         icon = Icons.Rounded.SmartButton,
                         title = "Button 1",
                         subtitle = button1Text.ifBlank { "YouTube Music" },
-                        enabled = connected && rpcEnabled,
                         trailing = {
                             Switch(
                                 checked = button1Visible,
                                 onCheckedChange = AppSettings::setDiscordButton1Visible,
-                                enabled = connected && rpcEnabled,
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_1_TEXT) },
+                    )
+                    SettingsRow(
+                        icon = Icons.Rounded.Link,
+                        title = "Button 1 URL",
+                        subtitle = button1Url.ifBlank { "YouTube Music track/search (automatic)" },
+                        enabled = button1Visible,
+                        onClick = { onOpenDialog(DiscordDialog.BUTTON_1_URL) },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Rounded.SmartButton,
                         title = "Button 2",
                         subtitle = button2Text.ifBlank { "Spotify" },
-                        enabled = connected && rpcEnabled,
                         trailing = {
                             Switch(
                                 checked = button2Visible,
                                 onCheckedChange = AppSettings::setDiscordButton2Visible,
-                                enabled = connected && rpcEnabled,
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_2_TEXT) },
                     )
+                    SettingsRow(
+                        icon = Icons.Rounded.Link,
+                        title = "Button 2 URL",
+                        subtitle = button2Url.ifBlank { "Spotify search (automatic)" },
+                        enabled = button2Visible,
+                        onClick = { onOpenDialog(DiscordDialog.BUTTON_2_URL) },
+                    )
                 }
-            }
         }
 
         SettingsGroup(
@@ -367,6 +405,12 @@ fun DiscordScreen(
                 verb = if (spotifySpoof) "Listening to" else kindOf(activityType).localizedVerb(),
                 useDetails = useDetails,
                 audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
+                customDetails = customDetails,
+                customState = customState,
+                button1Text = button1Text,
+                button1Visible = button1Visible,
+                button2Text = button2Text,
+                button2Visible = button2Visible,
             )
         }
 
@@ -532,9 +576,17 @@ private fun RichPresencePreview(
     verb: String,
     useDetails: Boolean,
     audioQuality: String?,
+    customDetails: String,
+    customState: String,
+    button1Text: String,
+    button1Visible: Boolean,
+    button2Text: String,
+    button2Visible: Boolean,
 ) {
     val title = song?.title ?: stringResource(R.string.widget_preview_title)
     val artist = song?.artist ?: stringResource(R.string.widget_preview_artist)
+    val details = customDetails.trim().ifBlank { if (useDetails) title else artist }
+    val state = customState.trim().ifBlank { if (useDetails) artist else title }
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text(
@@ -569,7 +621,7 @@ private fun RichPresencePreview(
                 // member list — so which of these is emphasised is the whole
                 // point of the "Lead with the song" switch.
                 Text(
-                    text = title,
+                    text = details,
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                     fontWeight = if (useDetails) FontWeight.W700 else FontWeight.W400,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -577,47 +629,42 @@ private fun RichPresencePreview(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = artist,
+                    text = buildString { append(state); audioQuality?.let { append(" · "); append(it) } },
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                     fontWeight = if (useDetails) FontWeight.W400 else FontWeight.W700,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                audioQuality?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 Spacer(Modifier.height(8.dp))
                 ProgressLine(positionMs = positionMs, durationMs = durationMs)
             }
         }
-
-
+        if (button1Visible || button2Visible) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (button1Visible) PresenceButton(button1Text.ifBlank { "YouTube Music" }, Modifier.weight(1f))
+                if (button2Visible) PresenceButton(button2Text.ifBlank { "Spotify" }, Modifier.weight(1f))
+            }
+        }
     }
 }
 
 /** Discord's flat, full-width secondary button. */
 @Composable
-private fun PresenceButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+private fun PresenceButton(label: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = if (enabled) 0.9f else 0.4f))
-            .clickable(enabled = enabled, onClick = onClick)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.9f))
             .padding(vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = if (enabled) 1f else 0.5f),
+            color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -743,6 +790,81 @@ fun DiscordDialogHost(
                     AppSettings.setDiscordActivityName(input.trim())
                     onDismiss()
                 },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.CUSTOM_DETAILS -> {
+            val current by AppSettings.discordCustomDetails.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Details line",
+                message = "The first visible line on your Discord activity. Leave blank to use the automatic title/artist order.",
+                placeholder = "Automatic track or artist",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordCustomDetails(input.trim().take(128)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.CUSTOM_STATE -> {
+            val current by AppSettings.discordCustomState.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "State line",
+                message = "The second visible line. Leave blank to use the other track field automatically.",
+                placeholder = "Automatic artist or track",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordCustomState(input.trim().take(96)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.LARGE_IMAGE_TEXT -> {
+            val current by AppSettings.discordLargeImageText.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Artwork hover text",
+                message = "Text shown when someone hovers over the large artwork.",
+                placeholder = "Track title",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordLargeImageText(input.trim().take(128)); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.BUTTON_1_URL -> {
+            val current by AppSettings.discordButton1Url.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Button 1 destination",
+                message = "Use an HTTPS link. Leave blank for the current YouTube Music track.",
+                placeholder = "https://…",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordButton1Url(input.trim()); onDismiss() },
+                onDismiss = onDismiss,
+            )
+        }
+
+        DiscordDialog.BUTTON_2_URL -> {
+            val current by AppSettings.discordButton2Url.collectAsStateWithLifecycle()
+            var input by remember { mutableStateOf(current) }
+            TextValueAlert(
+                hazeState = hazeState,
+                title = "Button 2 destination",
+                message = "Use an HTTPS link. Leave blank for the current Spotify search.",
+                placeholder = "https://…",
+                value = input,
+                onValueChange = { input = it },
+                onSave = { AppSettings.setDiscordButton2Url(input.trim()); onDismiss() },
                 onDismiss = onDismiss,
             )
         }
